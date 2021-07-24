@@ -83,8 +83,7 @@ int main(void)
     /* Load the next byte from the USART transmit buffer into the USART */
     if (!(RingBuffer_IsEmpty(&USBtoUSART_Buffer))) {
       Serial_TxByte(RingBuffer_Remove(&USBtoUSART_Buffer));
-        
-        LEDs_TurnOnLEDs(LEDMASK_RX);
+      LEDs_TurnOnLEDs(LEDMASK_RX);
       RxLEDPulse = LEDS_PULSE_MS;
     }
     
