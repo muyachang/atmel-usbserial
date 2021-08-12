@@ -59,7 +59,7 @@
 #----------------------------------------------------------------------------
 
 # MCU name(s)
-MCU = atmega16u2
+MCU = atmega32u2
 
 # Target board (see library "Board Types" documentation, NONE for projects not requiring
 # LUFA board drivers). If USER is selected, put custom board drivers in a directory called 
