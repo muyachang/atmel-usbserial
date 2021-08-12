@@ -104,7 +104,7 @@ TARGET = rram-usbserial
 OBJDIR = .
 
 # Path to the LUFA library
-LUFA_PATH = ../..
+LUFA_PATH = ..
 
 # LUFA library compile-time options
 LUFA_OPTS += -D USE_STATIC_OPTIONS="(USB_DEVICE_OPT_FULLSPEED | USB_OPT_REG_ENABLED | USB_OPT_AUTO_PLL)"
