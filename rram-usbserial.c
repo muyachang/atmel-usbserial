@@ -1,6 +1,6 @@
 /** \file
  *
- *  Main source file for the Arduino-usbserial project. This file contains the main tasks of
+ *  Main source file for the rram-usbserial project. This file contains the main tasks of
  *  the project and is responsible for the initial application hardware configuration.
  */
 
@@ -14,24 +14,24 @@ RingBuff_t USARTtoUSB_Buffer;
  *  within a device can be differentiated from one another.
  */
 USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
+{
+  .Config = 
   {
-    .Config = 
-      {
-        .ControlInterfaceNumber         = 0,
+    .ControlInterfaceNumber         = 0,
 
-        .DataINEndpointNumber           = CDC_TX_EPNUM,
-        .DataINEndpointSize             = CDC_TXRX_EPSIZE,
-        .DataINEndpointDoubleBank       = false,
+    .DataINEndpointNumber           = CDC_TX_EPNUM,
+    .DataINEndpointSize             = CDC_TXRX_EPSIZE,
+    .DataINEndpointDoubleBank       = false,
 
-        .DataOUTEndpointNumber          = CDC_RX_EPNUM,
-        .DataOUTEndpointSize            = CDC_TXRX_EPSIZE,
-        .DataOUTEndpointDoubleBank      = false,
+    .DataOUTEndpointNumber          = CDC_RX_EPNUM,
+    .DataOUTEndpointSize            = CDC_TXRX_EPSIZE,
+    .DataOUTEndpointDoubleBank      = false,
 
-        .NotificationEndpointNumber     = CDC_NOTIFICATION_EPNUM,
-        .NotificationEndpointSize       = CDC_NOTIFICATION_EPSIZE,
-        .NotificationEndpointDoubleBank = false,
-      },
-  };
+    .NotificationEndpointNumber     = CDC_NOTIFICATION_EPNUM,
+    .NotificationEndpointSize       = CDC_NOTIFICATION_EPSIZE,
+    .NotificationEndpointDoubleBank = false,
+  },
+};
 
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
@@ -190,8 +190,7 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t* const C
 }
 
 /* 
- * ISR to manage the reception of data from the serial port
- * placing received bytes into a circular buffer for later
+ * ISR to manage the reception of data from the serial port placing received bytes into a circular buffer for later
  * transmission to the host.
  */
 ISR(USART1_RX_vect, ISR_BLOCK)
