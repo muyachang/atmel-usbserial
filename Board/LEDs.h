@@ -17,8 +17,8 @@
   
   #define LEDS_PORT        PORTD
   #define LEDS_DDR         DDRD
-  #define LEDMASK_TX       _BV(5)
   #define LEDMASK_RX       _BV(4)
+  #define LEDMASK_TX       _BV(5)
   #define LEDS_ALL_LEDS    (LEDMASK_TX | LEDMASK_RX)
   #define LEDS_NO_LEDS     ~LEDS_ALL_LEDS
   #define LEDS_PULSE_MS    3

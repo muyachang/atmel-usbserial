@@ -7,7 +7,10 @@
 
   /* Includes: */
   #include "LTC3676.h"
-  #include "../Lib/I2C.h"
+  #include "I2C.h"
+  #include "SWD.h"
+  #include "DAC.h"
+  #include "RRAM.h"
 
   /* Private Interface - For use in library only: */
   #if !defined(__DOXYGEN__)
@@ -42,12 +45,13 @@
   #endif
 
   /* Public Interface - May be used in end-application: */
-    /* Mapping */
+    /* Feedback Ratio */
     #define PM_3V3_FB_RATIO       4
     #define PM_AVDD_WR_FB_RATIO   4
     #define PM_AVDD_WL_FB_RATIO   4
     #define PM_AVDD_RRAM_FB_RATIO 1
 
+    /* Mapping */
     /* 
      * 3V3       : BUCK1
      * AVDD_WR   : BUCK2
@@ -57,6 +61,35 @@
      * VDD       : LDO2
      * AVDD_SRAM : LDO4
      */
+
+    /* Adjust mode */
+    #define PM_ADJUST_MODE_INCREMENT 0
+    #define PM_ADJUST_MODE_DECREMENT 1
+    #define PM_ADJUST_MODE_PLUS      2
+    #define PM_ADJUST_MODE_MINUS     3
+    #define PM_ADJUST_MODE_ABSOLUTE  4
+
+    /* Data structure */
+    typedef struct {
+      const char    *name;
+      const uint8_t on_off_reg;
+      const uint8_t on_off_mask;
+      const uint8_t value_reg;
+      const uint8_t value_mask;
+      const uint8_t feedback_ratio;
+    } target_regulator_structure_t;
+
+    /* Regulator Map */
+    target_regulator_structure_t target_regulator_map[] = {
+      // Name      | On/Off Register |        On/Off Mask | Volt Value Register | Voltage Value Mask |       Feedback Ratio
+      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO       },
+      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO   },
+      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO   },
+      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0 },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0 },
+      { NULL }
+    };
 
   /* Inline Functions: */
 
@@ -97,93 +130,175 @@
     }
 
     /**
-     * Calculate the DVB value based on the target voltage and the ratio of the feedback resistors
+     * Calculate the DVB value based on the target voltage (mV) and the ratio of the feedback resistors
      */
-    static inline uint8_t PM_Calculate_DVBx(double _target_voltage, double _feedback_ratio) 
+    static inline uint8_t PM_Encode_DVBx(uint16_t _target_voltage, uint8_t _feedback_ratio) 
     {
-      return (uint8_t) (((_target_voltage*1000)/(1+_feedback_ratio)-412.5)/12.5);
+      int8_t DVBx = (int8_t)((((float)_target_voltage)/(1.0+(float)_feedback_ratio)-412.5)/12.5);
+      if(DVBx < 0)
+        DVBx = 0;
+      else if(DVBx >= _BV(5))
+        DVBx = _BV(5)-1;
+      return (uint8_t) DVBx;
     }
 
     /**
-     * Functions for adjusting the voltage
+     * Calculate the voltage (mV) based on the DVB value and the ratio of the feedback resistors
      */
-    static inline void PM_Adjust_3V3      (double _target_voltage) { PM_UpdateReg(PM_CMD_DVB1A, PM_Calculate_DVBx(_target_voltage, PM_3V3_FB_RATIO      ), PM_BUCK_FB_REF_MASK); }
-    static inline void PM_Adjust_AVDD_WR  (double _target_voltage) { PM_UpdateReg(PM_CMD_DVB2A, PM_Calculate_DVBx(_target_voltage, PM_AVDD_WR_FB_RATIO  ), PM_BUCK_FB_REF_MASK); }
-    static inline void PM_Adjust_AVDD_WL  (double _target_voltage) { PM_UpdateReg(PM_CMD_DVB3A, PM_Calculate_DVBx(_target_voltage, PM_AVDD_WL_FB_RATIO  ), PM_BUCK_FB_REF_MASK); }
-    static inline void PM_Adjust_AVDD_RRAM(double _target_voltage) { PM_UpdateReg(PM_CMD_DVB4A, PM_Calculate_DVBx(_target_voltage, PM_AVDD_RRAM_FB_RATIO), PM_BUCK_FB_REF_MASK); }
+    static inline uint16_t PM_Decode_DVBx(uint8_t _code, uint8_t _feedback_ratio) 
+    {
+      return (uint16_t) ((1.0+(float)_feedback_ratio)*((float)_code*12.5+412.5));
+    }
 
     /**
-     * Functions for enabling the voltage
+     * Function for finding the pointer of the target
      */
-    static inline void PM_Enable_3V3      (void) { PM_UpdateReg(PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Enable_AVDD_WR  (void) { PM_UpdateReg(PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Enable_AVDD_WL  (void) { PM_UpdateReg(PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Enable_AVDD_RRAM(void) { PM_UpdateReg(PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Enable_VDD      (void) { PM_UpdateReg(PM_CMD_LDOA , PM_LDO2_ENABLE_MASK, PM_LDO2_ENABLE_MASK); }
-    static inline void PM_Enable_AVDD_SRAM(void) { PM_UpdateReg(PM_CMD_LDOB , PM_LDO4_ENABLE_MASK, PM_LDO4_ENABLE_MASK); }
+    static inline target_regulator_structure_t* PM_Find_Target(const char* _target) { 
+      target_regulator_structure_t *candidate = target_regulator_map;
+      while(candidate->name) {
+        if(0 == strcmp(_target, candidate->name))
+          break;
+        else
+          candidate++;
+      }
+      return candidate;
+    }
 
     /**
-     * Functions for disabling the voltage
+     * Function for adjusting the voltage
      */
-    static inline void PM_Disable_3V3      (void) { PM_UpdateReg(PM_CMD_BUCK1, 0, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Disable_AVDD_WR  (void) { PM_UpdateReg(PM_CMD_BUCK2, 0, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Disable_AVDD_WL  (void) { PM_UpdateReg(PM_CMD_BUCK3, 0, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Disable_AVDD_RRAM(void) { PM_UpdateReg(PM_CMD_BUCK4, 0, PM_BUCK_ENABLE_MASK); }
-    static inline void PM_Disable_VDD      (void) { PM_UpdateReg(PM_CMD_LDOA , 0, PM_LDO2_ENABLE_MASK); }
-    static inline void PM_Disable_AVDD_SRAM(void) { PM_UpdateReg(PM_CMD_LDOB , 0, PM_LDO4_ENABLE_MASK); }
+    static inline void PM_Adjust(const char* _target, uint16_t _target_voltage, const char _mode) { 
+      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+
+      /* No target found, simply ignore the function call */
+      if(!regulator->name)
+        return;
+
+      /* Get the original binary code and adjust it if needed */
+      uint8_t oldDVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
+      uint8_t newDVBx;
+      uint16_t oldVoltage = PM_Decode_DVBx(oldDVBx, regulator->feedback_ratio);
+
+      if(_mode == PM_ADJUST_MODE_ABSOLUTE)
+        newDVBx = PM_Encode_DVBx(             _target_voltage, regulator->feedback_ratio);
+      else if(_mode == PM_ADJUST_MODE_PLUS)
+        newDVBx = PM_Encode_DVBx(oldVoltage + _target_voltage, regulator->feedback_ratio);
+      else if(_mode == PM_ADJUST_MODE_MINUS)
+        newDVBx = PM_Encode_DVBx(oldVoltage - _target_voltage, regulator->feedback_ratio);
+      else if(_mode == PM_ADJUST_MODE_INCREMENT)
+        newDVBx = oldDVBx + 1 >= _BV(5)? _BV(5) - 1: oldDVBx + 1;
+      else if(_mode == PM_ADJUST_MODE_DECREMENT)
+        newDVBx = (int8_t)oldDVBx - 1 < 0? 0: oldDVBx - 1;
+      else
+        newDVBx = oldDVBx;
+
+      PM_UpdateReg(regulator->value_reg, newDVBx, regulator->value_mask);
+      
+    }
 
     /**
-     * Special functions
+     * Function for reading the current voltage
      */
-    static inline void PM_Reset(void)    { PM_WriteReg(PM_CMD_HRST , 0); }
+    static inline uint16_t PM_Read(const char* _target) { 
+      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+
+      /* No target found, simply ignore the function call */
+      if(!regulator->name)
+        return 0;
+
+      /* Otherwise we read the voltage */
+      return PM_Decode_DVBx(PM_ReadReg(regulator->value_reg) & regulator->value_mask, regulator->feedback_ratio);
+    }
 
     /**
-     * Interrupt functions 
+     * Function for enabling the voltage
+     */
+    static inline void PM_Enable(const char* _target) { 
+      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+
+      /* No target found, simply ignore the function call */
+      if(!regulator->name)
+        return;
+
+      /* Otherwise we enable the voltage */
+      PM_UpdateReg(regulator->on_off_reg, regulator->on_off_mask, regulator->on_off_mask);
+    }
+
+    /**
+     * Function for disabling the voltage
+     */
+    static inline void PM_Disable(const char* _target) { 
+      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+
+      /* No target found, simply ignore the function call */
+      if(!regulator->name)
+        return;
+
+      /* Otherwise we disable the voltage */
+      PM_UpdateReg(regulator->on_off_reg, 0, regulator->on_off_mask);
+    }
+    
+    /**
+     * Function for reseting the regulator
+     */
+    static inline void PM_Reset(void) { PM_WriteReg(PM_CMD_HRST , 0); }
+
+    /**
+     * Function for clear interruptions
      */
     static inline void PM_ClearIRQ(void) { PM_WriteReg(PM_CMD_CLIRQ, 0); }
-    static inline void PM_ReadStatus(void) { PM_ReadReg(PM_STATUS_IRQSTAT); }
 
     /**
-     *
+     * Function for reading the interruption status 
      */
-    static inline void PM_PowerUp(void)
+    static inline uint8_t PM_ReadIRQ(void) { return PM_ReadReg(PM_STATUS_IRQSTAT); }
+
+    /**
+     * Function for resetting each voltage to the initial values
+     */
+    static inline void PM_PowerReset(void)
     {
-
       /* Adjust the voltages */
-      PM_Adjust_3V3(3.3);
-      PM_Adjust_AVDD_WL(3.6);
-      PM_Adjust_AVDD_WR(3.9);
-      PM_Adjust_AVDD_RRAM(1.1);
-
+      PM_Adjust("3V3"      , 3320, PM_ADJUST_MODE_ABSOLUTE);
+      PM_Adjust("AVDD_WL"  , 3000, PM_ADJUST_MODE_ABSOLUTE);
+      PM_Adjust("AVDD_WR"  , 3000, PM_ADJUST_MODE_ABSOLUTE);
+      PM_Adjust("AVDD_RRAM",  900, PM_ADJUST_MODE_ABSOLUTE);
+    }
+    
+    /**
+     * Function for turning on all the voltages
+     */
+    static inline void PM_EnableAll(void)
+    {
       /* Enable the low voltages first */
-      PM_Enable_VDD();
-      PM_Enable_AVDD_SRAM();
-      PM_Enable_AVDD_RRAM();
+      PM_Enable("VDD");
+      PM_Enable("AVDD_SRAM");
+      PM_Enable("AVDD_RRAM");
 
       /* Enable the high voltages second */
-      PM_Enable_3V3();
-      PM_Enable_AVDD_WR();
-      PM_Enable_AVDD_WL(); // ????
+      PM_Enable("3V3");
+      PM_Enable("AVDD_WR");
+      PM_Enable("AVDD_WL");
     }
     
     /**
-     *
+     * Function for turning off all the voltages
      */
-    static inline void PM_PowerDown(void)
+    static inline void PM_DisableAll(void)
     {
       /* Disable the high voltages first */
-      PM_Disable_3V3();
-      PM_Disable_AVDD_WR();
-      PM_Disable_AVDD_WL();
+      PM_Disable("3V3");
+      PM_Disable("AVDD_WR");
+      PM_Disable("AVDD_WL");
 
       /* Disable the low voltages second */
-      PM_Disable_VDD();
-      PM_Disable_AVDD_SRAM();
-      PM_Disable_AVDD_RRAM();
+      PM_Disable("VDD");
+      PM_Disable("AVDD_SRAM");
+      PM_Disable("AVDD_RRAM");
     }
-    
+
     /**
-     *
+     * Function for initializing the PM
      */
     static inline void PM_Init(void)
     {
@@ -194,8 +309,8 @@
       PM_NIRQ_DDR   &= ~PM_NIRQ_MASK ; // Set it as input
       PM_PGOOD_POUT |=  PM_PGOOD_MASK; // Enable the pull up resistor
       PM_PGOOD_DDR  &= ~PM_PGOOD_MASK; // Set it as input
-      PM_RSTO_POUT  |=  PM_RSTO_MASK; // Enable the pull up resistor
-      PM_RSTO_DDR   &= ~PM_RSTO_MASK; // Set it as input
+      PM_RSTO_POUT  |=  PM_RSTO_MASK ; // Enable the pull up resistor
+      PM_RSTO_DDR   &= ~PM_RSTO_MASK ; // Set it as input
 
       /* Enable Pin Change Interrupt Control Register */
       PCICR |= _BV(PCIE0); // For PCINT[7:0]
@@ -209,16 +324,39 @@
     }
     
     /**
-     *
+     * Interrupt functions
      */
     ISR(PCINT0_vect){
     }
 
     ISR(PCINT1_vect){
-      if(PM_WAKE_PIN & PM_WAKE_MASK)
-        PM_PowerUp();
-      else if(!(PM_WAKE_PIN & PM_WAKE_MASK))
-        PM_PowerDown();
+      if(PM_WAKE_PIN & PM_WAKE_MASK){
+        /* Reset power voltages */
+        PM_ClearIRQ();
+        PM_PowerReset();
+        PM_EnableAll();
+
+        /* Enable Protocols */
+        SPI_Init(SPI_SPEED_FCPU_DIV_2 | SPI_ORDER_MSB_FIRST | SPI_SCK_LEAD_FALLING | SPI_SAMPLE_TRAILING | SPI_MODE_MASTER);
+        SW_Init();
+
+        /* Enable Board Components */
+        RRAM_Init();
+        LEDs_Init();
+        DAC_Init();
+        Dataflash_Init();
+      }
+      else if(~(PM_WAKE_PIN & PM_WAKE_MASK)){
+        /* Disable Protocols */
+        SPI_ShutDown();
+        SW_ShutDown();
+
+        /* Disable Board Components */
+        RRAM_ShutDown();
+        LEDs_ShutDown();
+        DAC_ShutDown();
+        Dataflash_ShutDown();
+      }
     }
 
 #endif

@@ -7,10 +7,10 @@
 #ifndef _RING_BUFFER_H_
 #define _RING_BUFFER_H_
 
-#define BUFFER_SIZE         128
-#define BUFFER_NEARLY_FULL  96
-#define RingBuff_Data_t     uint8_t
-#define RingBuff_Count_t   uint16_t
+#define BUFFER_SIZE        32 
+#define BUFFER_NEARLY_FULL 28 
+#define RingBuff_Data_t    uint8_t
+#define RingBuff_Count_t   uint8_t
 
 typedef struct
 {

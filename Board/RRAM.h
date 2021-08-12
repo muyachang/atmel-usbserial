@@ -20,6 +20,9 @@
 
       #define RRAM_ROM_SIZE 131072 // 128KB
       #define RRAM_RAM_SIZE 524288 // 512KB
+
+      #define RRAM_RST_DURATION 250
+      #define RRAM_TRST_DURATION 250
   #endif
 
   /* Public Interface - May be used in end-application: */
@@ -27,27 +30,23 @@
 
     /* Inline Functions: */
       /**
-       *  Grasp the RRAM chip so that commands and data may be sent to an attached RRAM chip.
+       *  Initialize the RRAM chip
        */
-      static inline void RRAM_Grasp(void)
+      static inline void RRAM_Init(void)
       {
-        RRAM_NRST_LINE_PORT  |=  RRAM_NRST_LINE_MASK ; // Pull high NRST
-        RRAM_NRST_LINE_DDR   |=  RRAM_NRST_LINE_MASK ; // Set it as output
-
-        RRAM_NTRST_LINE_PORT |=  RRAM_NTRST_LINE_MASK; // Pull high NTRST
-        RRAM_NTRST_LINE_DDR  |=  RRAM_NTRST_LINE_MASK; // Set it as output 
+        RRAM_NRST_LINE_PORT  |=  RRAM_NRST_LINE_MASK ; // Enable the pull-up resistor
+        RRAM_NRST_LINE_DDR   &= ~RRAM_NRST_LINE_MASK ; // Set it as input 
+        RRAM_NTRST_LINE_PORT |=  RRAM_NTRST_LINE_MASK; // Enable the pull-up resistor
+        RRAM_NTRST_LINE_DDR  &= ~RRAM_NTRST_LINE_MASK; // Set it as input 
       }
 
       /**
-       *  Release the RRAM chip
+       *  Shutdown the RRAM chip
        */
-      static inline void RRAM_Release(void)
+      static inline void RRAM_ShutDown(void)
       {
         RRAM_NRST_LINE_PORT  &= ~RRAM_NRST_LINE_MASK ; // Disable the pull-up resistor
-        RRAM_NRST_LINE_DDR   &= ~RRAM_NRST_LINE_MASK ; // Set it as input 
-
         RRAM_NTRST_LINE_PORT &= ~RRAM_NTRST_LINE_MASK; // Disable the pull-up resistor
-        RRAM_NTRST_LINE_DDR  &= ~RRAM_NTRST_LINE_MASK; // Set it as input 
       }
 
       /**
@@ -55,8 +54,11 @@
        */
       static inline void RRAM_Reset(void)
       {
-        RRAM_NRST_LINE_PORT &= ~RRAM_NRST_LINE_MASK;
-        RRAM_NRST_LINE_PORT |=  RRAM_NRST_LINE_MASK;
+        RRAM_NRST_LINE_DDR  |=  RRAM_NRST_LINE_MASK; // Set it as output
+        RRAM_NRST_LINE_PORT &= ~RRAM_NRST_LINE_MASK; // Pull down RST
+        _delay_us(RRAM_RST_DURATION);
+        RRAM_NRST_LINE_PORT |=  RRAM_NRST_LINE_MASK; // Pull up RST
+        RRAM_NRST_LINE_DDR  &= ~RRAM_NRST_LINE_MASK; // Set it as input 
       }
 
       /**
@@ -64,8 +66,11 @@
        */
       static inline void RRAM_Test_Reset(void)
       {
-        RRAM_NTRST_LINE_PORT &= ~RRAM_NTRST_LINE_MASK;
-        RRAM_NTRST_LINE_PORT |=  RRAM_NTRST_LINE_MASK;
+        RRAM_NTRST_LINE_DDR  |=  RRAM_NTRST_LINE_MASK; // Set it as output
+        RRAM_NTRST_LINE_PORT &= ~RRAM_NTRST_LINE_MASK; // Pull down TRST
+        _delay_us(RRAM_RST_DURATION);
+        RRAM_NTRST_LINE_PORT |=  RRAM_NTRST_LINE_MASK; // Pull up TRST
+        RRAM_NTRST_LINE_DDR  &= ~RRAM_NTRST_LINE_MASK; // Set it as input 
       }
 
 #endif

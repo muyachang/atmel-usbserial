@@ -377,13 +377,13 @@
     static inline void SW_ResetCore(void)
     {
       // Reset the target
-      WriteMem(SW_REG_AIRCR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 0x05FA0004);
+      SW_WriteMem(SW_REG_AIRCR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 0x05FA0004);
 
       // Write 1 to bit 0 (SYSRESETREQ caused the reset) to clear RSTINFO register so the watchdog test passes
-      WriteMem(SW_REG_RSTINFO_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 1);
+      SW_WriteMem(SW_REG_RSTINFO_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 1);
 
       // Clear Halt and debug enables
-      WriteMem(SW_REG_DHCSR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, SW_REG_DBGKEY);
+      SW_WriteMem(SW_REG_DHCSR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, SW_REG_DBGKEY);
     }
 
 

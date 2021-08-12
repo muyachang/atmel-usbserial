@@ -6,7 +6,6 @@
 
 #include "rram-usbserial.h"
 
-RingBuff_t USBtoUSART_Buffer;
 RingBuff_t USARTtoUSB_Buffer;
 
 /*
@@ -44,17 +43,10 @@ int main(void)
   /* Infinite Loop */
   for (;;)
   {
-    /* Only try to read in bytes from the CDC interface if the transmit buffer is not full */
-    if (!(RingBuffer_IsFull(&USBtoUSART_Buffer)))
-    {
-      int16_t ReceivedByte = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-
-      /* Read bytes from the USB OUT endpoint into the USART transmit buffer */
-      if (!(ReceivedByte < 0)){
-        RingBuffer_Insert(&USBtoUSART_Buffer, ReceivedByte);
-        RingBuffer_Insert(&USARTtoUSB_Buffer, ReceivedByte);
-      }
-    }
+    /* Read bytes from the USB OUT endpoint into the UART Console */
+    int16_t ReceivedByte = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+    if (!(ReceivedByte < 0))
+      UARTConsole_InsertChar(ReceivedByte);
     
     /* Check if the UART receive buffer flush timer has expired or the buffer is nearly full */
     RingBuff_Count_t BufferCount = RingBuffer_GetCount(&USARTtoUSB_Buffer);
@@ -74,21 +66,9 @@ int main(void)
       /* Turn off TX LED(s) once the TX pulse period has elapsed */
       if (TxLEDPulse && !(--TxLEDPulse))
         LEDs_TurnOffLEDs(LEDMASK_TX);
-
-      /* Turn off RX LED(s) once the RX pulse period has elapsed */
-      if (RxLEDPulse && !(--RxLEDPulse))
-        LEDs_TurnOffLEDs(LEDMASK_RX);
-    }
-    
-    /* Load the next byte from the USART transmit buffer into the USART */
-    if (!(RingBuffer_IsEmpty(&USBtoUSART_Buffer))) {
-      Serial_TxByte(RingBuffer_Remove(&USBtoUSART_Buffer));
-      LEDs_TurnOnLEDs(LEDMASK_RX);
-      RxLEDPulse = LEDS_PULSE_MS;
     }
     
     CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-    USB_USBTask();
   }
 }
 
@@ -96,52 +76,27 @@ int main(void)
 void SetupHardware(void)
 {
   /* Disable watchdog if enabled by bootloader/fuses */
-  MCUSR &= ~(1 << WDRF);
-  wdt_disable();
-
-  /* Change the clock frequency prescaler */
-  CLKPR = (1<<7) | 16;
-
-  /* UART Buffer Initialization*/
-  RingBuffer_InitBuffer(&USBtoUSART_Buffer);
-  RingBuffer_InitBuffer(&USARTtoUSB_Buffer);
+  MCUSR &= ~_BV(WDRF); // Clear Watchdog Reset Flag
+  wdt_disable(); // Disable Watchdog Timer
 
   /* Enable Global Interrupt */
   sei();
 
-  /* Grasp board components so we can control them */
-  Dataflash_Grasp();
-  DAC_Grasp();
-  RRAM_Grasp();
-
-  /* Protocol Initialization */
-  USB_Init();
-  Serial_Init(9600, false);
-  SPI_Init(SPI_SPEED_FCPU_DIV_2 | SPI_ORDER_MSB_FIRST | SPI_SCK_LEAD_FALLING | SPI_SAMPLE_TRAILING | SPI_MODE_MASTER);
-  SW_Init();
+  /* Change the clock frequency prescaler */
+  CLKPR = (1<<7) | 16;
 
   /* Start the flush timer so that overflows occur rapidly to push received bytes to the USB interface */
   TCCR0B = (1 << CS02);
   
-  /* Hardware Initialization (Sequence matters here) */
-  LEDs_Init();
+  /* UART Buffer Initialization*/
+  RingBuffer_InitBuffer(&USARTtoUSB_Buffer);
+
+  /* Protocol Initialization */
+  USB_Init();
+  Serial_Init(9600, false);
+
+  /* Power Initialization */
   PM_Init();
-
-  /* Initialize with some low voltages */
-  DAC_Configure_DAC(DAC_CHIP1, LOAD_DAC_REG_A, 750); 
-  DAC_Configure_DAC(DAC_CHIP1, LOAD_DAC_REG_B, 1250); 
-
-  ///* Write the application binary */
-  //Write_Program();
-
-  ///* Protocols shutdown */
-  //SPI_ShutDown();
-  //SW_ShutDown();
-
-  ///* Release board components so others can control them */
-  //Dataflash_Release();
-  //DAC_Release();
-  //RRAM_Release();
 }
 
 /* Transfer the Program from Dataflash to RRAM testchip */
@@ -154,13 +109,11 @@ void Write_Program(void){
 
   /* Start reading from the Dataflash sequentially and Write to the RRAM testchip */
   Dataflash_SelectChip(DATAFLASH_CHIP1);
-  Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, 0);
-  for(uint16_t i=0; i < RRAM_ROM_SIZE; i++)
+  Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LF, 0);
+  for(uint32_t i=0; i < RRAM_ROM_SIZE; i++){
     SW_WriteMem(SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_BYTE_MASK, Dataflash_ReceiveByte());
+  }
   Dataflash_DeselectChip();
-
-  /* Reset RRAM testchip */
-  SW_ResetCore();
 }
 
 /** Event handler for the library USB Configuration Changed event. */
@@ -230,10 +183,9 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t* const C
   // Data Terminal Ready (DTR)
   if (DataTerminalReady){
     UARTConsole_PrintHeader();
-    RRAM_NRST_LINE_PORT &= ~RRAM_NRST_LINE_MASK;
+    UARTConsole_PrintPrompt();
   }
   else{
-    RRAM_NRST_LINE_PORT |=  RRAM_NRST_LINE_MASK;
   }
 }
 

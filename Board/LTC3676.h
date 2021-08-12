@@ -38,10 +38,14 @@
 
   /* Bit purpose for BUCKx ~ LDOx */
   #define PM_BUCK_ENABLE_MASK _BV(7)
+  #define PM_BUCK_PHASE_MASK  _BV(3)
+  #define PM_BUCK_FREQ_MASK   _BV(2)
+  #define PM_BUCK_SLEW_MASK   _BV(0)
   #define PM_LDO2_ENABLE_MASK _BV(2)
   #define PM_LDO4_ENABLE_MASK _BV(2)
 
   /* Bit purpose for DVBxA, DVBxB */
+  #define PM_BUCK_PGOOD_MASK  _BV(5)
   #define PM_BUCK_FB_REF_MASK (0x1F << 0)
 
   /* Status Registers */
