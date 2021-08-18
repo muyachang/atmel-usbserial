@@ -280,11 +280,24 @@ static inline void UARTConsole_ProcessCommand(void)
   }
 
   /* LED */
-  if(strcmp("LED", parameter[0]) == 0)
-    if(strcmp("TX", parameter[1]) == 0)
-      LEDs_ToggleLEDs(LEDMASK_TX);
-    else if(strcmp("RX", parameter[1]) == 0)
-      LEDs_ToggleLEDs(LEDMASK_RX);
+  else if(strcmp("LED", parameter[0]) == 0){
+    if(strcmp("TX", parameter[1]) == 0){
+      if(strcmp("on", parameter[2]) == 0)
+        LEDs_TurnOnLEDs(LEDMASK_TX);
+      else if(strcmp("off", parameter[2]) == 0)
+        LEDs_TurnOffLEDs(LEDMASK_TX);
+      else
+        LEDs_ToggleLEDs(LEDMASK_TX);
+    }
+    else if(strcmp("RX", parameter[1]) == 0){
+      if(strcmp("on", parameter[2]) == 0)
+        LEDs_TurnOnLEDs(LEDMASK_RX);
+      else if(strcmp("off", parameter[2]) == 0)
+        LEDs_TurnOffLEDs(LEDMASK_RX);
+      else
+        LEDs_ToggleLEDs(LEDMASK_RX);
+    }
+  }
 
   /* Unknown command, loop it back to the CDC */
   else if(count !=0){ 
@@ -319,10 +332,10 @@ static inline void UARTConsole_InsertChar(uint8_t _char)
     char _char2 = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
 
     if(_char1 == 0x5B){
-      //     if(_char2 == 0x41){ // Up 
-      //}
-      //else if(_char2 == 0x42){ // Down 
-      //}
+           if(_char2 == 0x41){ // Up 
+      }
+      else if(_char2 == 0x42){ // Down 
+      }
       if(_char2 == 0x43){ // Right
         UARTConsole_MoveForward(1);
       }
@@ -331,10 +344,10 @@ static inline void UARTConsole_InsertChar(uint8_t _char)
       }
     }
   }
-  //else if(_char == 0x02) // Ctrl + B
-  //  UARTConsole_MoveBackward(position);
-  //else if(_char == 0x03) // Ctrl + C
-  //  UARTConsole_MoveForward(count-position);
+  else if(_char == 0x02) // Ctrl + B
+    UARTConsole_MoveBackward(position);
+  else if(_char == 0x03) // Ctrl + C
+    UARTConsole_MoveForward(count-position);
   else
     UARTConsole_CommandInsert(_char);
 }
