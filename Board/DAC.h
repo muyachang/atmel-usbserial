@@ -30,7 +30,7 @@
 
     /* Mapping */
     /* 
-     * VTGT    : DAC_A
+     * VTGT_BL : DAC_A
      * ADC_CAL : DAC_B
      */
 
@@ -51,7 +51,7 @@
     /* DAC Map */
     target_dac_structure_t target_dac_map[] = {
       // Name      | Value Register
-      { "VTGT"     , LOAD_DAC_REG_A, 100 }, 
+      { "VTGT_BL"  , LOAD_DAC_REG_A, 100 }, 
       { "ADC_CAL"  , LOAD_DAC_REG_B, 200 }, 
       { NULL }
     };
