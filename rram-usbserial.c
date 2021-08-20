@@ -82,9 +82,6 @@ void SetupHardware(void)
   /* Enable Global Interrupt */
   sei();
 
-  /* Change the clock frequency prescaler */
-  CLKPR = (1<<7) | 16;
-
   /* Start the flush timer so that overflows occur rapidly to push received bytes to the USB interface */
   TCCR0B = (1 << CS02);
   
