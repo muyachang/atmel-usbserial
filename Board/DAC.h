@@ -140,7 +140,7 @@
       /** 
        *  For the selected DAC chip, read the _target channel voltage 
        */
-      static inline uint16_t DAC_Read(const char* _target)
+      static inline uint16_t DAC_Read_Voltage(const char* _target)
       {
         dac_structure_t *channel = DAC_Find_Target(_target);
 
