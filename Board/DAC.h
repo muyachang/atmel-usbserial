@@ -46,13 +46,14 @@
       const char     *name;
       const uint8_t  value_reg;
             uint16_t current_level; // Current binary value for the corresponding voltage
-    } target_dac_structure_t;
+      const uint8_t  level_addr; // inside EEPROM (Needs 2 bytes to store)
+    } dac_structure_t;
 
     /* DAC Map */
-    target_dac_structure_t target_dac_map[] = {
-      // Name      | Value Register
-      { "VTGT_BL"  , LOAD_DAC_REG_A, 100 }, 
-      { "ADC_CAL"  , LOAD_DAC_REG_B, 200 }, 
+    dac_structure_t dacs_map[] = {
+      // Name      | Value Register | Current Level | Level Address
+      { "VTGT_BL"  , LOAD_DAC_REG_A ,           100 ,             6}, 
+      { "ADC_CAL"  , LOAD_DAC_REG_B ,           200 ,             8}, 
       { NULL }
     };
 
@@ -61,8 +62,8 @@
       /**
        * Function for finding the pointer of the target
        */
-      static inline target_dac_structure_t* DAC_Find_Target(const char* _target) { 
-        target_dac_structure_t *candidate = target_dac_map;
+      static inline dac_structure_t* DAC_Find_Target(const char* _target) { 
+        dac_structure_t *candidate = dacs_map;
         while(candidate->name) {
           if( 0 == strcmp(_target, candidate->name))
             break;
@@ -95,7 +96,7 @@
        */
       static inline void DAC_Configure_DAC(const char* _target, uint16_t _mVolt, const char _mode)
       {
-        target_dac_structure_t *channel = DAC_Find_Target(_target);
+        dac_structure_t *channel = DAC_Find_Target(_target);
 
         /* No channel found, simply ignore the function call */
         if(!channel->name)
@@ -141,7 +142,7 @@
        */
       static inline uint16_t DAC_Read(const char* _target)
       {
-        target_dac_structure_t *channel = DAC_Find_Target(_target);
+        dac_structure_t *channel = DAC_Find_Target(_target);
 
         /* No channel found, simply ignore the function call */
         if(!channel->name)
@@ -161,7 +162,7 @@
         DAC_LOADDACS_POUT |=  DAC_LOADDACS_MASK; // Enable the pull high resistor
         DAC_LOADDACS_DDR  &= ~DAC_LOADDACS_MASK; // Set it as an input 
         
-        target_dac_structure_t *channel = target_dac_map;
+        dac_structure_t *channel = dacs_map;
         while(channel->name) {
           DAC_Configure_DAC(channel->name, DAC_Decode_Level(channel->current_level), DAC_ADJUST_MODE_ABSOLUTE);
           channel++;
@@ -177,5 +178,33 @@
         DAC_LOADDACS_POUT &= ~DAC_LOADDACS_MASK; // Disable the pull high resistor
       }
 
+      /**
+       * Function for storing the level into EEPROM
+       */
+      static inline void DAC_Save(void)
+      {
+        dac_structure_t *channel = dacs_map;
+        while(channel->name) {
+          eeprom_write_byte((uint8_t*)channel->level_addr  , channel->current_level     );
+          eeprom_write_byte((uint8_t*)channel->level_addr+1, channel->current_level >> 8);
+          eeprom_busy_wait();
+          channel++;
+        }
+      }
+
+      /**
+       * Function for loading the level from EEPROM
+       */
+      static inline void DAC_Load(void)
+      {
+        dac_structure_t *channel = dacs_map;
+        while(channel->name) {
+          channel->current_level = 0; 
+          channel->current_level += eeprom_read_byte((uint8_t*)channel->level_addr  )     ;
+          channel->current_level += eeprom_read_byte((uint8_t*)channel->level_addr+1) << 8;
+          DAC_Configure_DAC(channel->name, DAC_Decode_Level(channel->current_level), DAC_ADJUST_MODE_ABSOLUTE);
+          channel++;
+        }
+      }
 
 #endif
