@@ -99,23 +99,6 @@ void SetupHardware(void)
   PM_Init();
 }
 
-/* Transfer the Program from Dataflash to RRAM testchip */
-void Write_Program(void){
-  /* Prepare RRAM testchip for programming */
-  SW_JTAGToSW();
-  SW_Connect();
-  SW_DAPPowerUp();
-  SW_HaltCore();
-
-  /* Start reading from the Dataflash sequentially and Write to the RRAM testchip */
-  Dataflash_SelectChip(DATAFLASH_CHIP1);
-  Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LF, 0);
-  for(uint32_t i=0; i < RRAM_ROM_SIZE; i++){
-    SW_WriteMem(SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_BYTE_MASK, Dataflash_ReceiveByte());
-  }
-  Dataflash_DeselectChip();
-}
-
 /** Event handler for the library USB Configuration Changed event. */
 void EVENT_USB_Device_ConfigurationChanged(void)
 {
