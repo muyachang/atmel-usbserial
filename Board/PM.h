@@ -77,17 +77,19 @@
       const uint8_t value_reg;
       const uint8_t value_mask;
       const uint8_t feedback_ratio;
-    } target_regulator_structure_t;
+      const bool    adjustable;
+      const uint8_t DVBx_addr; // inside EEPROM
+    } regulator_structure_t;
 
     /* Regulator Map */
-    target_regulator_structure_t target_regulator_map[] = {
-      // Name      | On/Off Register |        On/Off Mask | Volt Value Register | Voltage Value Mask |       Feedback Ratio
-      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO       },
-      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO   },
-      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO   },
-      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO },
-      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0 },
-      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0 },
+    regulator_structure_t regulators_map[] = {
+      // Name      | On/Off Register |        On/Off Mask | Volt Value Register | Voltage Value Mask |       Feedback Ratio | Adjustability | DVBx address
+      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO      ,          true ,            0 },
+      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true ,            1 },
+      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true ,            2 },
+      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true ,            3 },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0,         false ,            4 },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0,         false ,            5 },
       { NULL }
     };
 
@@ -153,8 +155,8 @@
     /**
      * Function for finding the pointer of the target
      */
-    static inline target_regulator_structure_t* PM_Find_Target(const char* _target) { 
-      target_regulator_structure_t *candidate = target_regulator_map;
+    static inline regulator_structure_t* PM_Find_Target(const char* _target) { 
+      regulator_structure_t *candidate = regulators_map;
       while(candidate->name) {
         if(0 == strcmp(_target, candidate->name))
           break;
@@ -168,7 +170,7 @@
      * Function for adjusting the voltage
      */
     static inline void PM_Adjust(const char* _target, uint16_t _target_voltage, const char _mode) { 
-      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+      regulator_structure_t *regulator = PM_Find_Target(_target);
 
       /* No target found, simply ignore the function call */
       if(!regulator->name)
@@ -200,7 +202,7 @@
      * Function for reading the current voltage
      */
     static inline uint16_t PM_Read(const char* _target) { 
-      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+      regulator_structure_t *regulator = PM_Find_Target(_target);
 
       /* No target found, simply ignore the function call */
       if(!regulator->name)
@@ -214,7 +216,7 @@
      * Function for enabling the voltage
      */
     static inline void PM_Enable(const char* _target) { 
-      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+      regulator_structure_t *regulator = PM_Find_Target(_target);
 
       /* No target found, simply ignore the function call */
       if(!regulator->name)
@@ -228,7 +230,7 @@
      * Function for disabling the voltage
      */
     static inline void PM_Disable(const char* _target) { 
-      target_regulator_structure_t *regulator = PM_Find_Target(_target);
+      regulator_structure_t *regulator = PM_Find_Target(_target);
 
       /* No target found, simply ignore the function call */
       if(!regulator->name)
@@ -323,6 +325,33 @@
       //PM_RSTO_INT_REG  |= PM_RSTO_INT_MASK;
     }
     
+    /**
+     * Function for storing the DVBx into EEPROM
+     */
+    static inline void PM_Save(void)
+    {
+      regulator_structure_t *regulator = regulators_map;
+      while(regulator->name) {
+        uint8_t DVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
+        eeprom_write_byte((uint8_t*)regulator->DVBx_addr, DVBx);
+        eeprom_busy_wait();
+        regulator++;
+      }
+    }
+
+    /**
+     * Function for loading the DVBx from EEPROM
+     */
+    static inline void PM_Load(void)
+    {
+      regulator_structure_t *regulator = regulators_map;
+      while(regulator->name) {
+        uint8_t DVBx = eeprom_read_byte((uint8_t*)regulator->DVBx_addr);
+        PM_UpdateReg(regulator->value_reg, DVBx, regulator->value_mask);
+        regulator++;
+      }
+    }
+
     /**
      * Interrupt functions
      */
