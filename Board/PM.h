@@ -199,14 +199,28 @@
     }
 
     /**
-     * Function for reading the current voltage
+     * Function for checking if the target is enabled
      */
-    static inline uint16_t PM_Read(const char* _target) { 
+    static inline bool PM_Is_Enabled(const char* _target) { 
       regulator_structure_t *regulator = PM_Find_Target(_target);
 
       /* No target found, simply ignore the function call */
       if(!regulator->name)
         return 0;
+
+      /* Otherwise we read the status */
+      return PM_ReadReg(regulator->on_off_reg) & regulator->on_off_mask? true: false;
+    }
+
+    /**
+     * Function for reading the current voltage
+     */
+    static inline uint16_t PM_Read_Voltage(const char* _target) { 
+      regulator_structure_t *regulator = PM_Find_Target(_target);
+
+      /* No target found, simply ignore the function call */
+      if(!regulator->name || !regulator->adjustable)
+        return -1;
 
       /* Otherwise we read the voltage */
       return PM_Decode_DVBx(PM_ReadReg(regulator->value_reg) & regulator->value_mask, regulator->feedback_ratio);
