@@ -180,7 +180,7 @@ static inline void UARTConsole_ProcessCommand(void)
       regulator_structure_t *regulator = regulators_map;
       while(regulator->name) {
         memset(buffer, 0, TEMP_BUFFER_SIZE);
-        sprintf(buffer, " - %10s: %4d mV\r\n", regulator->name, regulator->adjustable? PM_Read(regulator->name): -1);
+        sprintf(buffer, " - %10s(%3s): %4d mV\r\n", regulator->name, PM_Is_Enabled(regulator->name)?"on":"off", PM_Read_Voltage(regulator->name));
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         regulator++;
       }
@@ -218,7 +218,7 @@ static inline void UARTConsole_ProcessCommand(void)
       PM_Adjust(parameter[1],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
     else{
       memset(buffer, 0, TEMP_BUFFER_SIZE);
-      sprintf(buffer, "Value: %4d mV\r\n",  PM_Read(parameter[1]));
+      sprintf(buffer, " - %10s(%3s): %4d mV\r\n", parameter[1], PM_Is_Enabled(parameter[1])?"on":"off", PM_Read_Voltage(parameter[1]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
@@ -229,7 +229,7 @@ static inline void UARTConsole_ProcessCommand(void)
       dac_structure_t *channel = dacs_map;
       while(channel->name) {
         memset(buffer, 0, TEMP_BUFFER_SIZE);
-        sprintf(buffer, " - %10s: %4d mV\r\n", channel->name, DAC_Read(channel->name));
+        sprintf(buffer, " - %10s: %4d mV\r\n", channel->name, DAC_Read_Voltage(channel->name));
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         channel++;
       }
@@ -250,7 +250,7 @@ static inline void UARTConsole_ProcessCommand(void)
       DAC_Configure_DAC(parameter[1], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
     else{
       memset(buffer, 0, TEMP_BUFFER_SIZE);
-      sprintf(buffer, "Value: %4d mV\r\n",  DAC_Read(parameter[1]));
+      sprintf(buffer, " - %10s: %4d mV\r\n", parameter[1], DAC_Read_Voltage(parameter[1]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
@@ -357,19 +357,19 @@ static inline void UARTConsole_ProcessCommand(void)
       sprintf(buffer, "Transferring Demo \"%s\" from page %d\r\n", demos_map[index].name, demos_map[index].page_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
-      // Prepare RRAM testchip for programming
-      SW_JTAGToSW();
-      SW_Connect();
-      SW_DAPPowerUp();
-      SW_HaltCore();
+      //// Prepare RRAM testchip for programming
+      //SW_JTAGToSW();
+      //SW_Connect();
+      //SW_DAPPowerUp();
+      //SW_HaltCore();
 
-      // Start reading from the Dataflash sequentially and Write to the RRAM testchip
-      Dataflash_SelectChip(DATAFLASH_CHIP1);
-      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LF, 0);
-      for(uint32_t i=0; i < RRAM_ROM_SIZE; i++){
-        SW_WriteMem(SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_BYTE_MASK, Dataflash_ReceiveByte());
-      }
-      Dataflash_DeselectChip();
+      //// Start reading from the Dataflash sequentially and Write to the RRAM testchip
+      //Dataflash_SelectChip(DATAFLASH_CHIP1);
+      //Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LF, 0);
+      //for(uint32_t i=0; i < RRAM_ROM_SIZE; i++){
+      //  SW_WriteMem(SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_BYTE_MASK, Dataflash_ReceiveByte());
+      //}
+      //Dataflash_DeselectChip();
     }
     else if(strcmp("run", parameter[1]) == 0){
       SPI_ShutDown();
