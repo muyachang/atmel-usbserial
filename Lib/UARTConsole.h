@@ -299,6 +299,34 @@ static inline void UARTConsole_ProcessCommand(void)
     }
   }
 
+  /* RRAM */
+  else if(strcmp("RRAM", parameter[0]) == 0){
+    if(strcmp("linereset", parameter[1]) == 0){
+      SW_LineReset();
+    }
+    else if(strcmp("jtagtosw", parameter[1]) == 0){
+      SW_JTAGToSW();
+    }
+    else if(strcmp("connect", parameter[1]) == 0){
+      SW_Connect();
+    }
+    else if(strcmp("powerup", parameter[1]) == 0){
+      SW_DAPPowerUp();
+    }
+    //else if(strcmp("write", parameter[1]) == 0){
+    //  SW_WriteMem();
+    //}
+    //else if(strcmp("read", parameter[1]) == 0){
+    //  SW_WriteMem();
+    //}
+    else if(strcmp("halt", parameter[1]) == 0){
+      SW_HaltCore();
+    }
+    else if(strcmp("resetcore", parameter[1]) == 0){
+      SW_ResetCore();
+    }
+  }
+
   /* Unknown command, loop it back to the CDC */
   else if(count !=0){ 
     CDC_Device_SendString(&VirtualSerial_CDC_Interface, "Unknown Command: ", 17);
