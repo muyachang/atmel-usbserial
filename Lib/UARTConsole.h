@@ -6,16 +6,17 @@
 #ifndef _UART_CONSOLE_H_
 #define _UART_CONSOLE_H_
 
+#include <stdlib.h>
 #include "PM.h"
 #include "DAC.h"
 #include "Dataflash.h"
 #include "RRAM.h"
-#include <stdlib.h>
+#include "Demos.h"
 
 #define PROMPT "ICSRL>"
 #define HEADER "<< RRAM Terminal >>\r\n"
 #define COMMAND_BUFFER_SIZE 32 
-#define TEMP_BUFFER_SIZE 16 
+#define TEMP_BUFFER_SIZE 32 
 
 #define NUL 0x00 // Ctrl-@
 #define SOH 0x01 // Ctrl-A
@@ -62,7 +63,6 @@ uint8_t position = 0;
 char buffer[TEMP_BUFFER_SIZE];
 
 extern USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface;
-void Write_Program(void);
 
 /*
 * 
@@ -174,24 +174,28 @@ static inline void UARTConsole_ProcessCommand(void)
     token = strtok(NULL, " ");
   }
 
-  /* Release the hardware */
-  if(strcmp("run", parameter[0]) == 0){
-    /* Protocols shutdown */
-    SPI_ShutDown();
-
-    /* Reset RRAM testchip */
-    RRAM_Reset();
-  }
-
   /* Power Management (PM) */
-  else if(strcmp("PM", parameter[0]) == 0){
-    if(strcmp("clear", parameter[1]) == 0)
+  if(strcmp("PM", parameter[0]) == 0){
+    if(strcmp("list", parameter[1]) == 0){
+      regulator_structure_t *regulator = regulators_map;
+      while(regulator->name) {
+        memset(buffer, 0, TEMP_BUFFER_SIZE);
+        sprintf(buffer, " - %10s: %4d mV\r\n", regulator->name, regulator->adjustable? PM_Read(regulator->name): -1);
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        regulator++;
+      }
+    }
+    else if(strcmp("clear", parameter[1]) == 0)
       PM_ClearIRQ();
     else if(strcmp("status", parameter[1]) == 0){
       memset(buffer, 0, TEMP_BUFFER_SIZE);
       sprintf(buffer, "Status: 0x%02x\r\n",  PM_ReadIRQ());
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
+    else if(strcmp("save", parameter[1]) == 0)
+      PM_Save();
+    else if(strcmp("load", parameter[1]) == 0)
+      PM_Load();
     else if(strcmp("allon", parameter[1]) == 0)
       PM_EnableAll();
     else if(strcmp("alloff", parameter[1]) == 0)
@@ -214,14 +218,27 @@ static inline void UARTConsole_ProcessCommand(void)
       PM_Adjust(parameter[1],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
     else{
       memset(buffer, 0, TEMP_BUFFER_SIZE);
-      sprintf(buffer, "Value: %4d\r\n",  PM_Read(parameter[1]));
+      sprintf(buffer, "Value: %4d mV\r\n",  PM_Read(parameter[1]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
 
   /* Digital Analog Converter (DAC) */
   else if(strcmp("DAC", parameter[0]) == 0){
-    if(parameter[2][0] == '+' && parameter[2][1] == '+')
+    if(strcmp("list", parameter[1]) == 0){
+      dac_structure_t *channel = dacs_map;
+      while(channel->name) {
+        memset(buffer, 0, TEMP_BUFFER_SIZE);
+        sprintf(buffer, " - %10s: %4d mV\r\n", channel->name, DAC_Read(channel->name));
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        channel++;
+      }
+    }
+    else if(strcmp("save", parameter[1]) == 0)
+      DAC_Save();
+    else if(strcmp("load", parameter[1]) == 0)
+      DAC_Load();
+    else if(parameter[2][0] == '+' && parameter[2][1] == '+')
       DAC_Configure_DAC(parameter[1], 0, DAC_ADJUST_MODE_INCREMENT); 
     else if(parameter[2][0] == '-' && parameter[2][1] == '-')
       DAC_Configure_DAC(parameter[1], 0, DAC_ADJUST_MODE_DECREMENT); 
@@ -233,7 +250,7 @@ static inline void UARTConsole_ProcessCommand(void)
       DAC_Configure_DAC(parameter[1], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
     else{
       memset(buffer, 0, TEMP_BUFFER_SIZE);
-      sprintf(buffer, "Value: %4d\r\n",  DAC_Read(parameter[1]));
+      sprintf(buffer, "Value: %4d mV\r\n",  DAC_Read(parameter[1]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
@@ -260,10 +277,7 @@ static inline void UARTConsole_ProcessCommand(void)
     else
       value = atoi(parameter[3]);
 
-    if(strcmp("upload", parameter[1]) == 0){
-      Write_Program();
-    }
-    else if(strcmp("read", parameter[1]) == 0){
+    if(strcmp("read", parameter[1]) == 0){
       Dataflash_SelectChip(DATAFLASH_CHIP1);
       Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LF, address);
       memset(buffer, 0, TEMP_BUFFER_SIZE);
@@ -324,6 +338,42 @@ static inline void UARTConsole_ProcessCommand(void)
     }
     else if(strcmp("resetcore", parameter[1]) == 0){
       SW_ResetCore();
+    }
+  }
+
+  /* Demos */
+  else if(strcmp("DEMO", parameter[0]) == 0){
+    if(strcmp("list", parameter[1]) == 0){
+      for(uint8_t i=0;i<sizeof(demos_map)/sizeof(demos_structure_t);i++){
+        memset(buffer, 0, TEMP_BUFFER_SIZE);
+        sprintf(buffer, "%d - %s\r\n",  i, demos_map[i].name);
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      }
+    }
+    else if(strcmp("load", parameter[1]) == 0){
+      // Print out the demo being loaded
+      uint8_t index = atoi(parameter[2]);
+      memset(buffer, 0, TEMP_BUFFER_SIZE);
+      sprintf(buffer, "Transferring Demo \"%s\" from page %d\r\n", demos_map[index].name, demos_map[index].page_number);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+
+      // Prepare RRAM testchip for programming
+      SW_JTAGToSW();
+      SW_Connect();
+      SW_DAPPowerUp();
+      SW_HaltCore();
+
+      // Start reading from the Dataflash sequentially and Write to the RRAM testchip
+      Dataflash_SelectChip(DATAFLASH_CHIP1);
+      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LF, 0);
+      for(uint32_t i=0; i < RRAM_ROM_SIZE; i++){
+        SW_WriteMem(SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_BYTE_MASK, Dataflash_ReceiveByte());
+      }
+      Dataflash_DeselectChip();
+    }
+    else if(strcmp("run", parameter[1]) == 0){
+      SPI_ShutDown();
+      RRAM_Reset();
     }
   }
 
