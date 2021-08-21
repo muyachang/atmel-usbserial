@@ -78,7 +78,7 @@
       const uint8_t value_mask;
       const uint8_t feedback_ratio;
       const bool    adjustable;
-      const uint8_t DVBx_addr; // inside EEPROM
+      const uint16_t DVBx_addr; // inside EEPROM
     } regulator_structure_t;
 
     /* Regulator Map */
@@ -88,8 +88,8 @@
       { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true ,            1 },
       { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true ,            2 },
       { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true ,            3 },
-      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0,         false ,            4 },
-      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0,         false ,            5 },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0,         false ,           -1 },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0,         false ,           -1 },
       { NULL }
     };
 
@@ -346,9 +346,11 @@
     {
       regulator_structure_t *regulator = regulators_map;
       while(regulator->name) {
-        uint8_t DVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
-        eeprom_write_byte((uint8_t*)regulator->DVBx_addr, DVBx);
-        eeprom_busy_wait();
+        if(regulator->adjustable){
+          uint8_t DVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
+          eeprom_write_byte((uint8_t*)regulator->DVBx_addr, DVBx);
+          eeprom_busy_wait();
+        }
         regulator++;
       }
     }
@@ -360,8 +362,10 @@
     {
       regulator_structure_t *regulator = regulators_map;
       while(regulator->name) {
-        uint8_t DVBx = eeprom_read_byte((uint8_t*)regulator->DVBx_addr);
-        PM_UpdateReg(regulator->value_reg, DVBx, regulator->value_mask);
+        if(regulator->adjustable){
+          uint8_t DVBx = eeprom_read_byte((uint8_t*)regulator->DVBx_addr);
+          PM_UpdateReg(regulator->value_reg, DVBx, regulator->value_mask);
+        }
         regulator++;
       }
     }

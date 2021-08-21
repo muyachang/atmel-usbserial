@@ -5,15 +5,15 @@
     /* Data structure */
     typedef struct {
       const char    *name;
-      const uint16_t page_number;
+      const uint16_t sector_number;
     } demos_structure_t;
 
     /* Regulator Map */
     demos_structure_t demos_map[] = {
-      // Name      | Page Number
-      { "user"     ,        256*0},
-      { "hello"    ,        256*1},
-      { "dhry"     ,        256*2}
+      // Name      | Sector Number
+      { "user"     ,          0*0},
+      { "hello"    ,          1*2},
+      { "dhry"     ,          2*2}
     };
 
 
