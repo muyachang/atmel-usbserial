@@ -46,14 +46,14 @@
       const char     *name;
       const uint8_t  value_reg;
             uint16_t current_level; // Current binary value for the corresponding voltage
-      const uint16_t level_addr; // inside EEPROM (Needs 2 bytes to store)
+            uint16_t __attribute__((section(".eeprom"))) level; // inside EEPROM
     } dac_structure_t;
 
     /* DAC Map */
     dac_structure_t dacs_map[] = {
       // Name      | Value Register | Current Level | Level Address
-      { "VTGT_BL"  , LOAD_DAC_REG_A ,           100 ,             4}, 
-      { "ADC_CAL"  , LOAD_DAC_REG_B ,           200 ,             6}, 
+      { "VTGT_BL"  , LOAD_DAC_REG_A ,           100 ,           100}, 
+      { "ADC_CAL"  , LOAD_DAC_REG_B ,           200 ,           100}, 
       { NULL }
     };
 
@@ -185,7 +185,7 @@
       {
         dac_structure_t *channel = dacs_map;
         while(channel->name) {
-          eeprom_write_word((uint16_t*)channel->level_addr  , channel->current_level);
+          eeprom_write_word(&channel->level, channel->current_level);
           eeprom_busy_wait();
           channel++;
         }
@@ -198,7 +198,7 @@
       {
         dac_structure_t *channel = dacs_map;
         while(channel->name) {
-          channel->current_level = eeprom_read_word((uint16_t*)channel->level_addr  )     ;
+          channel->current_level = eeprom_read_word(&channel->level);
           DAC_Configure_DAC(channel->name, DAC_Decode_Level(channel->current_level), DAC_ADJUST_MODE_ABSOLUTE);
           channel++;
         }
