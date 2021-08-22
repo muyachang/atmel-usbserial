@@ -78,18 +78,23 @@
       const uint8_t value_mask;
       const uint8_t feedback_ratio;
       const bool    adjustable;
-      const uint16_t DVBx_addr; // inside EEPROM
+            uint8_t* DVBx_addr; // inside EEPROM
     } regulator_structure_t;
 
     /* Regulator Map */
+    __attribute__((section(".eeprom"))) uint8_t  PM_3V3_DVBx       = 0x14;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WR_DVBx   = 0x00;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WL_DVBx   = 0x00;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_RRAM_DVBx = 0x03;
+
     regulator_structure_t regulators_map[] = {
       // Name      | On/Off Register |        On/Off Mask | Volt Value Register | Voltage Value Mask |       Feedback Ratio | Adjustability | DVBx address
-      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO      ,          true ,            0 },
-      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true ,            1 },
-      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true ,            2 },
-      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true ,            3 },
-      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0,         false ,           -1 },
-      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0,         false ,           -1 },
+      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO      ,          true , &PM_3V3_DVBx       },
+      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true , &PM_AVDD_WR_DVBx   },
+      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true , &PM_AVDD_WL_DVBx   },
+      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true , &PM_AVDD_RRAM_DVBx },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0,         false ,               NULL },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0,         false ,               NULL },
       { NULL }
     };
 
@@ -270,17 +275,36 @@
     static inline uint8_t PM_ReadIRQ(void) { return PM_ReadReg(PM_STATUS_IRQSTAT); }
 
     /**
-     * Function for resetting each voltage to the initial values
+     * Function for storing the DVBx into EEPROM
      */
-    static inline void PM_PowerReset(void)
+    static inline void PM_Save(void)
     {
-      /* Adjust the voltages */
-      PM_Adjust("3V3"      , 3320, PM_ADJUST_MODE_ABSOLUTE);
-      PM_Adjust("AVDD_WL"  , 3000, PM_ADJUST_MODE_ABSOLUTE);
-      PM_Adjust("AVDD_WR"  , 3000, PM_ADJUST_MODE_ABSOLUTE);
-      PM_Adjust("AVDD_RRAM",  900, PM_ADJUST_MODE_ABSOLUTE);
+      regulator_structure_t *regulator = regulators_map;
+      while(regulator->name) {
+        if(regulator->adjustable){
+          uint8_t DVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
+          eeprom_write_byte(regulator->DVBx_addr, DVBx);
+          eeprom_busy_wait();
+        }
+        regulator++;
+      }
     }
-    
+
+    /**
+     * Function for loading the DVBx from EEPROM
+     */
+    static inline void PM_Load(void)
+    {
+      regulator_structure_t *regulator = regulators_map;
+      while(regulator->name) {
+        if(regulator->adjustable){
+          uint8_t DVBx = eeprom_read_byte(regulator->DVBx_addr);
+          PM_UpdateReg(regulator->value_reg, DVBx, regulator->value_mask);
+        }
+        regulator++;
+      }
+    }
+
     /**
      * Function for turning on all the voltages
      */
@@ -340,37 +364,6 @@
     }
     
     /**
-     * Function for storing the DVBx into EEPROM
-     */
-    static inline void PM_Save(void)
-    {
-      regulator_structure_t *regulator = regulators_map;
-      while(regulator->name) {
-        if(regulator->adjustable){
-          uint8_t DVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
-          eeprom_write_byte((uint8_t*)regulator->DVBx_addr, DVBx);
-          eeprom_busy_wait();
-        }
-        regulator++;
-      }
-    }
-
-    /**
-     * Function for loading the DVBx from EEPROM
-     */
-    static inline void PM_Load(void)
-    {
-      regulator_structure_t *regulator = regulators_map;
-      while(regulator->name) {
-        if(regulator->adjustable){
-          uint8_t DVBx = eeprom_read_byte((uint8_t*)regulator->DVBx_addr);
-          PM_UpdateReg(regulator->value_reg, DVBx, regulator->value_mask);
-        }
-        regulator++;
-      }
-    }
-
-    /**
      * Interrupt functions
      */
     ISR(PCINT0_vect){
@@ -380,7 +373,7 @@
       if(PM_WAKE_PIN & PM_WAKE_MASK){
         /* Reset power voltages */
         PM_ClearIRQ();
-        PM_PowerReset();
+        PM_Load();
         PM_EnableAll();
 
         /* Enable Protocols */
