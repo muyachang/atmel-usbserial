@@ -5,6 +5,9 @@
 #ifndef __LEDS_RRAM_H__
 #define __LEDS_RRAM_H__
 
+  /* Includes: */
+  #include <util/delay.h>
+
   /* Enable C linkage for C++ Compilers: */
   #if defined(__cplusplus)
     extern "C" {
@@ -29,12 +32,6 @@
 
   /* Inline Functions: */
   #if !defined(__DOXYGEN__)
-  static inline void LEDs_Init(void)
-  {
-    LEDS_PORT |=  LEDS_ALL_LEDS; // Turn off all LEDs by default
-    LEDS_DDR  |=  LEDS_ALL_LEDS; // Set it as output
-  }
-  
   static inline void LEDs_ShutDown(void)
   {
     LEDS_PORT |=  LEDS_ALL_LEDS; // Turn off all LEDs after shutdown
@@ -65,11 +62,33 @@
   {
     LEDS_PORT = ((LEDS_PORT | ActiveMask) & ~LEDMask);
   }
+
+  static inline void LEDs_Blink(const uint8_t duration, const uint8_t times)
+  {
+    for(uint8_t i=0;i<times;i++){
+      LEDs_TurnOnLEDs(LEDMASK_RX);
+      _delay_ms(duration);
+      LEDs_TurnOffLEDs(LEDMASK_RX);
+      _delay_ms(duration);
+      LEDs_TurnOnLEDs(LEDMASK_TX);
+      _delay_ms(duration);
+      LEDs_TurnOffLEDs(LEDMASK_TX);
+      _delay_ms(duration);
+    }
+  }
   
   static inline uint8_t LEDs_GetLEDs(void) ATTR_WARN_UNUSED_RESULT;
   static inline uint8_t LEDs_GetLEDs(void)
   {
     return (LEDS_PORT & LEDS_ALL_LEDS);
+  }
+
+  static inline void LEDs_Init(void)
+  {
+    LEDS_PORT |=  LEDS_ALL_LEDS; // Turn off all LEDs by default
+    LEDS_DDR  |=  LEDS_ALL_LEDS; // Set it as output
+
+    LEDs_Blink(25,10);
   }
   #endif
   

@@ -338,32 +338,6 @@
     }
 
     /**
-     * Function for initializing the PM
-     */
-    static inline void PM_Init(void)
-    {
-      /* Set interrupt pins as input and enables the pull-up resistor*/
-      PM_WAKE_POUT  |=  PM_WAKE_MASK ; // Enable the pull up resistor
-      PM_WAKE_DDR   &= ~PM_WAKE_MASK ; // Set it as input
-      PM_NIRQ_POUT  |=  PM_NIRQ_MASK ; // Enable the pull up resistor
-      PM_NIRQ_DDR   &= ~PM_NIRQ_MASK ; // Set it as input
-      PM_PGOOD_POUT |=  PM_PGOOD_MASK; // Enable the pull up resistor
-      PM_PGOOD_DDR  &= ~PM_PGOOD_MASK; // Set it as input
-      PM_RSTO_POUT  |=  PM_RSTO_MASK ; // Enable the pull up resistor
-      PM_RSTO_DDR   &= ~PM_RSTO_MASK ; // Set it as input
-
-      /* Enable Pin Change Interrupt Control Register */
-      PCICR |= _BV(PCIE0); // For PCINT[7:0]
-      PCICR |= _BV(PCIE1); // For PCINT[12:8]
-
-      /* Choose Which Pins to Interrupt */
-      PM_WAKE_INT_REG  |= PM_WAKE_INT_MASK;
-      //PM_NIRQ_INT_REG  |= PM_NIRQ_INT_MASK;
-      //PM_PGOOD_INT_REG |= PM_PGOOD_INT_MASK;
-      //PM_RSTO_INT_REG  |= PM_RSTO_INT_MASK;
-    }
-    
-    /**
      * Interrupt functions
      */
     ISR(PCINT0_vect){
@@ -398,5 +372,34 @@
         Dataflash_ShutDown();
       }
     }
+
+    /**
+     * Function for initializing the PM
+     */
+    static inline void PM_Init(void)
+    {
+      /* Set interrupt pins as input and enables the pull-up resistor*/
+      PM_WAKE_POUT  |=  PM_WAKE_MASK ; // Enable the pull up resistor
+      PM_WAKE_DDR   &= ~PM_WAKE_MASK ; // Set it as input
+      PM_NIRQ_POUT  |=  PM_NIRQ_MASK ; // Enable the pull up resistor
+      PM_NIRQ_DDR   &= ~PM_NIRQ_MASK ; // Set it as input
+      PM_PGOOD_POUT |=  PM_PGOOD_MASK; // Enable the pull up resistor
+      PM_PGOOD_DDR  &= ~PM_PGOOD_MASK; // Set it as input
+      PM_RSTO_POUT  |=  PM_RSTO_MASK ; // Enable the pull up resistor
+      PM_RSTO_DDR   &= ~PM_RSTO_MASK ; // Set it as input
+
+      /* Enable Pin Change Interrupt Control Register */
+      PCICR |= _BV(PCIE0); // For PCINT[7:0]
+      PCICR |= _BV(PCIE1); // For PCINT[12:8]
+
+      /* Choose Which Pins to Interrupt */
+      PM_WAKE_INT_REG  |= PM_WAKE_INT_MASK;
+      //PM_NIRQ_INT_REG  |= PM_NIRQ_INT_MASK;
+      //PM_PGOOD_INT_REG |= PM_PGOOD_INT_MASK;
+      //PM_RSTO_INT_REG  |= PM_RSTO_INT_MASK;
+      
+      PCINT1_vect();
+    }
+    
 
 #endif
