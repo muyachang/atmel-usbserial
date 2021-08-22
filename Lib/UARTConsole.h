@@ -526,15 +526,21 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(strcmp("connect", parameter[1]) == 0){
       SW_Connect();
     }
-    else if(strcmp("powerup", parameter[1]) == 0){
+    else if(strcmp("dappowerup", parameter[1]) == 0){
       SW_DAPPowerUp();
     }
-    //else if(strcmp("write", parameter[1]) == 0){
-    //  SW_WriteMem();
-    //}
-    //else if(strcmp("read", parameter[1]) == 0){
-    //  SW_WriteMem();
-    //}
+    else if(strcmp("read", parameter[1]) == 0){
+      uint32_t address = atoi(parameter[2]);
+      uint32_t value = SW_ReadMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK);
+      memset(buffer, 0, TEMP_BUFFER_SIZE);
+      sprintf(buffer, "[%lu] = 0x%02lX\r\n", address, value);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+    }
+    else if(strcmp("write", parameter[1]) == 0){
+      uint32_t address = atoi(parameter[2]);
+      uint32_t value = atoi(parameter[3]);
+      SW_WriteMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK, value);
+    }
     else if(strcmp("halt", parameter[1]) == 0){
       SW_HaltCore();
     }
@@ -577,6 +583,9 @@ static inline void UARTConsole_ProcessCommand(void)
       SPI_ShutDown();
       RRAM_Reset();
     }
+    else if(strcmp("stop", parameter[1]) == 0){
+      SPI_Init(SPI_SPEED_FCPU_DIV_2 | SPI_ORDER_MSB_FIRST | SPI_SCK_LEAD_FALLING | SPI_SAMPLE_TRAILING | SPI_MODE_MASTER);
+    }
   }
 
   /* Unknown command, loop it back to the CDC */
@@ -612,11 +621,11 @@ static inline void UARTConsole_InsertChar(uint8_t _char)
     char _char2 = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
 
     if(_char1 == 0x5B){
-           if(_char2 == 0x41){ // Up 
+      if(_char2 == 0x41){ // Up 
       }
       else if(_char2 == 0x42){ // Down 
       }
-      if(_char2 == 0x43){ // Right
+      else if(_char2 == 0x43){ // Right
         UARTConsole_MoveForward(1);
       }
       else if(_char2 == 0x44){ // Left
