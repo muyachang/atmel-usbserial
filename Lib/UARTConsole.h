@@ -234,10 +234,6 @@ static inline void UARTConsole_ProcessCommand(void)
         channel++;
       }
     }
-    else if(strcmp("save", parameter[1]) == 0)
-      DAC_Save();
-    else if(strcmp("load", parameter[1]) == 0)
-      DAC_Load();
     else if(parameter[2][0] == '+' && parameter[2][1] == '+')
       DAC_Configure_DAC(parameter[1], 0, DAC_ADJUST_MODE_INCREMENT); 
     else if(parameter[2][0] == '-' && parameter[2][1] == '-')
@@ -420,47 +416,45 @@ static inline void UARTConsole_ProcessCommand(void)
         }
       }
       else{
-        uint16_t address;
         uint8_t  value;
         if(strcmp("all", parameter[2]) == 0){
-          for(address = DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET; address < DATAFLASH_SECTORS + DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET; address++){
-            eeprom_write_byte((uint8_t*)address, DF_SECTORPROTECTIONREG_PROTECTED);
+          for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
+            eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_PROTECTED);
             eeprom_busy_wait();
           }
         }
         else if(strcmp("none", parameter[2]) == 0){
-          for(address = DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET; address < DATAFLASH_SECTORS + DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET; address++){
-            eeprom_write_byte((uint8_t*)address, DF_SECTORPROTECTIONREG_UNPROTECTED);
+          for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
+            eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_UNPROTECTED);
             eeprom_busy_wait();
           }
         }
         else if(strcmp("0a", parameter[2]+1) == 0){
-          address = DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET;
-          value = eeprom_read_byte((uint8_t*)address);
+          value = eeprom_read_byte(&DF_Sector_Protection[0]);
           if(parameter[2][0] == '+')
             value |= DF_SECTORPROTECTIONREG_0A_PROTECTED;
           if(parameter[2][0] == '-')
             value &= ~DF_SECTORPROTECTIONREG_0A_PROTECTED;
-          eeprom_write_byte((uint8_t*)address, value);
+          eeprom_write_byte(&DF_Sector_Protection[0], value);
           eeprom_busy_wait();
         }
         else if(strcmp("0b", parameter[2]+1) == 0){
-          address = DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET;
-          value = eeprom_read_byte((uint8_t*)address);
+          value = eeprom_read_byte(&DF_Sector_Protection[0]);
           if(parameter[2][0] == '+')
             value |= DF_SECTORPROTECTIONREG_0B_PROTECTED;
           else if(parameter[2][0] == '-')
             value &= ~DF_SECTORPROTECTIONREG_0B_PROTECTED;
-          eeprom_write_byte((uint8_t*)address, value);
+          eeprom_write_byte(&DF_Sector_Protection[0], value);
           eeprom_busy_wait();
         }
         else{
-          address = DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET + atoi(parameter[2]+1);
           if(parameter[2][0] == '+')
             value = DF_SECTORPROTECTIONREG_PROTECTED;
           else if(parameter[2][0] == '-')
             value = DF_SECTORPROTECTIONREG_UNPROTECTED;
-          eeprom_write_byte((uint8_t*)address, value);
+          else
+            value = DF_SECTORPROTECTIONREG_PROTECTED;
+          eeprom_write_byte(&DF_Sector_Protection[atoi(parameter[2]+1)], value);
           eeprom_busy_wait();
         }
 
@@ -473,8 +467,8 @@ static inline void UARTConsole_ProcessCommand(void)
         // Update Sector Protection Register
         for(uint8_t i=0;i<sizeof(DF_CMD_PROGRAMSECTORPROTECTIONREG)/sizeof(DF_CMD_PROGRAMSECTORPROTECTIONREG[0]);i++)
           Dataflash_SendByte(DF_CMD_PROGRAMSECTORPROTECTIONREG[i]);
-        for(uint16_t i=0;i<DATAFLASH_SECTORS;i++)
-          Dataflash_SendByte(eeprom_read_byte((uint8_t*)(i+DATAFLASH_SECTOR_PROCTECTED_ADDR_OFFSET)));
+        for(uint8_t i=0;i<DATAFLASH_SECTORS;i++)
+          Dataflash_SendByte(eeprom_read_byte(&DF_Sector_Protection[i]));
         Dataflash_ToggleSelectedChipCS();
         Dataflash_WaitWhileBusy();
       }
@@ -483,10 +477,10 @@ static inline void UARTConsole_ProcessCommand(void)
       uint32_t i;
       Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, 0);
       for(i = 0; i<(uint32_t)DATAFLASH_PAGES*(uint32_t)DATAFLASH_PAGE_SIZE;i++){
-        uint8_t temp = (uint8_t)Dataflash_ReceiveByte();
+        uint8_t temp = Dataflash_ReceiveByte();
         if(temp != 255){
           memset(buffer, 0, TEMP_BUFFER_SIZE);
-          sprintf(buffer, "0x%02lX with value %d\r\n", i, temp);
+          sprintf(buffer, "0x%02lX value %d\r\n", i, temp);
           CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
           break;
         }
