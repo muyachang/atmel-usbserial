@@ -17,14 +17,11 @@
 #include <LUFA/Drivers/Peripheral/Serial.h>
 
 /* Board Components */
-#include "DAC.h"
 #include "PM.h"
-#include "RRAM.h"
 
 /* Libs */
 #include "RingBuffer.h"
 #include "UARTConsole.h"
-#include "SWD.h"
 
 void SetupHardware(void);
 
