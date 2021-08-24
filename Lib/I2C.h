@@ -11,14 +11,14 @@
   /* Private Interface - For use in library only: */
   #if !defined(__DOXYGEN__)
     /* Macros: */
-      #define I2C_SDA_PIN   PIND
-      #define I2C_SDA_POUT  PORTD
-      #define I2C_SDA_DDR   DDRD
-      #define I2C_SDA_MASK  _BV(1)
+      #define I2C_SDA_PIN   PINB
+      #define I2C_SDA_POUT  PORTB
+      #define I2C_SDA_DDR   DDRB
+      #define I2C_SDA_MASK  _BV(7)
 
-      #define I2C_SCL_POUT  PORTD
-      #define I2C_SCL_DDR   DDRD
-      #define I2C_SCL_MASK  _BV(0)
+      #define I2C_SCL_POUT  PORTC
+      #define I2C_SCL_DDR   DDRC
+      #define I2C_SCL_MASK  _BV(2)
 
       #define I2C_DELAY 5 
   #endif
