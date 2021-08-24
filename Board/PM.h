@@ -15,41 +15,46 @@
   /* Private Interface - For use in library only: */
   #if !defined(__DOXYGEN__)
     /* Macros: */
-      #define PM_WAKE_PIN       PINC
-      #define PM_WAKE_POUT      PORTC
-      #define PM_WAKE_DDR       DDRC
-      #define PM_WAKE_MASK      _BV(2)
-      #define PM_WAKE_INT_REG   PCMSK1
-      #define PM_WAKE_INT_MASK  _BV(PCINT11)
+      #define PM_WAKE_PIN             PIND
+      #define PM_WAKE_POUT            PORTD
+      #define PM_WAKE_DDR             DDRD
+      #define PM_WAKE_MASK            _BV(0)
+      #define PM_WAKE_INT_REG         EIMSK 
+      #define PM_WAKE_INT_MASK        _BV(INT0)
+      #define PM_WAKE_INT_TYPE_REG    EICRA
+      #define PM_WAKE_INT_TYPE_LOC    0 
+      #define PM_WAKE_INT_TYPE_MASK   _BV(ISC00)|_BV(ISC01)
 
-      #define PM_NIRQ_PIN       PINC
-      #define PM_NIRQ_POUT      PORTC
-      #define PM_NIRQ_DDR       DDRC
-      #define PM_NIRQ_MASK      _BV(4)
-      #define PM_NIRQ_INT_REG   PCMSK1
-      #define PM_NIRQ_INT_MASK  _BV(PCINT10)
+      #define PM_NIRQ_PIN             PIND
+      #define PM_NIRQ_POUT            PORTD
+      #define PM_NIRQ_DDR             DDRD
+      #define PM_NIRQ_MASK            _BV(1)
+      #define PM_NIRQ_INT_REG         EIMSK
+      #define PM_NIRQ_INT_MASK        _BV(INT1)
+      #define PM_NIRQ_INT_TYPE_REG    EICRA
+      #define PM_NIRQ_INT_TYPE_LOC    2 
+      #define PM_NIRQ_INT_TYPE_MASK   _BV(ISC10)|_BV(ISC11)
 
-      #define PM_PGOOD_PIN      PINC
-      #define PM_PGOOD_POUT     PORTC
-      #define PM_PGOOD_DDR      DDRC
-      #define PM_PGOOD_MASK     _BV(5)
-      #define PM_PGOOD_INT_REG  PCMSK1
-      #define PM_PGOOD_INT_MASK _BV(PCINT9)
+      #define PM_AVDD_WR_FB_SEL_PIN   PIND
+      #define PM_AVDD_WR_FB_SEL_POUT  PORTD
+      #define PM_AVDD_WR_FB_SEL_DDR   DDRD
+      #define PM_AVDD_WR_FB_SEL_MASK  _BV(4)
 
-      #define PM_RSTO_PIN      PINB
-      #define PM_RSTO_POUT     PORTB
-      #define PM_RSTO_DDR      DDRB
-      #define PM_RSTO_MASK     _BV(7)
-      #define PM_RSTO_INT_REG  PCMSK1
-      #define PM_RSTO_INT_MASK _BV(PCINT7)
+      #define PM_AVDD_WL_FB_SEL_PIN   PIND
+      #define PM_AVDD_WL_FB_SEL_POUT  PORTD
+      #define PM_AVDD_WL_FB_SEL_DDR   DDRD
+      #define PM_AVDD_WL_FB_SEL_MASK  _BV(5)
+
   #endif
 
   /* Public Interface - May be used in end-application: */
     /* Feedback Ratio */
-    #define PM_3V3_FB_RATIO       4
-    #define PM_AVDD_WR_FB_RATIO   4
-    #define PM_AVDD_WL_FB_RATIO   4
-    #define PM_AVDD_RRAM_FB_RATIO 1
+    #define PM_3V3_FB_RATIO          4.00
+    #define PM_AVDD_WR_FB_RATIO_LOW  1.61
+    #define PM_AVDD_WR_FB_RATIO_HIGH 4.00
+    #define PM_AVDD_WL_FB_RATIO_LOW  1.00
+    #define PM_AVDD_WL_FB_RATIO_HIGH 4.00
+    #define PM_AVDD_RRAM_FB_RATIO    1.00
 
     /* Mapping */
     /* 
@@ -76,7 +81,7 @@
       const uint8_t on_off_mask;
       const uint8_t value_reg;
       const uint8_t value_mask;
-      const uint8_t feedback_ratio;
+            uint8_t feedback_ratio;
       const bool    adjustable;
             uint8_t* DVBx_addr; // inside EEPROM
     } regulator_structure_t;
@@ -88,13 +93,13 @@
     __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_RRAM_DVBx = 0x03;
 
     regulator_structure_t regulators_map[] = {
-      // Name      | On/Off Register |        On/Off Mask | Value Register | Voltage Value Mask |       Feedback Ratio | Adjustability | DVBx address
-      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO      ,          true , &PM_3V3_DVBx       },
-      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true , &PM_AVDD_WR_DVBx   },
-      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true , &PM_AVDD_WL_DVBx   },
-      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true , &PM_AVDD_RRAM_DVBx },
-      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,               0,                   0,                     0,         false ,               NULL },
-      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,               0,                   0,                     0,         false ,               NULL },
+      // Name      | On/Off Register |        On/Off Mask | Value Register | Voltage Value Mask |         Feedback Ratio | Adjustability | DVBx address
+      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO        ,          true , &PM_3V3_DVBx       },
+      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO_LOW,          true , &PM_AVDD_WR_DVBx   },
+      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO_LOW,          true , &PM_AVDD_WL_DVBx   },
+      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO  ,          true , &PM_AVDD_RRAM_DVBx },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL },
       { NULL }
     };
 
@@ -338,12 +343,9 @@
     }
 
     /**
-     * Interrupt functions
+     * Interrupt functions for WAKE pin
      */
-    ISR(PCINT0_vect){
-    }
-
-    ISR(PCINT1_vect){
+    ISR(INT0_vect){
       if(PM_WAKE_PIN & PM_WAKE_MASK){
         /* Reset power voltages */
         PM_ClearIRQ();
@@ -360,7 +362,7 @@
         DAC_Init();
         Dataflash_Init();
       }
-      else if(~(PM_WAKE_PIN & PM_WAKE_MASK)){
+      else{
         /* Disable Protocols */
         SPI_ShutDown();
         SW_ShutDown();
@@ -374,31 +376,43 @@
     }
 
     /**
+     * Interrupt functions for NIRQ pin
+     */
+    ISR(INT1_vect){
+      /* Read IRQ */
+      uint8_t status = PM_ReadIRQ();
+      
+      /* Do things accordingly */
+    }
+
+    /**
      * Function for initializing the PM
      */
     static inline void PM_Init(void)
     {
-      /* Set interrupt pins as input and enables the pull-up resistor*/
+      /* Set FB for both WR and WL low so the voltages are low */
+      PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Pull low
+      PM_AVDD_WR_FB_SEL_DDR  |=  PM_AVDD_WR_FB_SEL_MASK; // Set it as output
+
+      PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Pull low
+      PM_AVDD_WL_FB_SEL_DDR  |=  PM_AVDD_WL_FB_SEL_MASK; // Set it as output
+
+      /* Set interrupt pins as input and enables the pull-up resistor */
       PM_WAKE_POUT  |=  PM_WAKE_MASK ; // Enable the pull up resistor
       PM_WAKE_DDR   &= ~PM_WAKE_MASK ; // Set it as input
       PM_NIRQ_POUT  |=  PM_NIRQ_MASK ; // Enable the pull up resistor
       PM_NIRQ_DDR   &= ~PM_NIRQ_MASK ; // Set it as input
-      PM_PGOOD_POUT |=  PM_PGOOD_MASK; // Enable the pull up resistor
-      PM_PGOOD_DDR  &= ~PM_PGOOD_MASK; // Set it as input
-      PM_RSTO_POUT  |=  PM_RSTO_MASK ; // Enable the pull up resistor
-      PM_RSTO_DDR   &= ~PM_RSTO_MASK ; // Set it as input
 
-      /* Enable Pin Change Interrupt Control Register */
-      PCICR |= _BV(PCIE0); // For PCINT[7:0]
-      PCICR |= _BV(PCIE1); // For PCINT[12:8]
+      /* Enable External Interrupt Mask Register */
+      PM_WAKE_INT_REG |= PM_WAKE_INT_MASK;
+      PM_NIRQ_INT_REG |= PM_NIRQ_INT_MASK;
 
-      /* Choose Which Pins to Interrupt */
-      PM_WAKE_INT_REG  |= PM_WAKE_INT_MASK;
-      //PM_NIRQ_INT_REG  |= PM_NIRQ_INT_MASK;
-      //PM_PGOOD_INT_REG |= PM_PGOOD_INT_MASK;
-      //PM_RSTO_INT_REG  |= PM_RSTO_INT_MASK;
+      /* Configure Interrupt Sense */
+      PM_WAKE_INT_TYPE_REG = (PM_WAKE_INT_TYPE_REG & ~PM_WAKE_INT_TYPE_MASK) | (1 << PM_WAKE_INT_TYPE_LOC); // Any edge detection
+      PM_NIRQ_INT_TYPE_REG = (PM_NIRQ_INT_TYPE_REG & ~PM_NIRQ_INT_TYPE_MASK) | (0 << PM_NIRQ_INT_TYPE_LOC); // Low level detection
       
-      PCINT1_vect();
+      /* Execute at startup in case the power was already on */
+      INT0_vect();
     }
     
 
