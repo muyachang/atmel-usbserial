@@ -88,13 +88,13 @@
     __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_RRAM_DVBx = 0x03;
 
     regulator_structure_t regulators_map[] = {
-      // Name      | On/Off Register |        On/Off Mask | Volt Value Register | Voltage Value Mask |       Feedback Ratio | Adjustability | DVBx address
-      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO      ,          true , &PM_3V3_DVBx       },
-      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true , &PM_AVDD_WR_DVBx   },
-      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true , &PM_AVDD_WL_DVBx   },
-      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,         PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true , &PM_AVDD_RRAM_DVBx },
-      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,                    0,                   0,                     0,         false ,               NULL },
-      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,                    0,                   0,                     0,         false ,               NULL },
+      // Name      | On/Off Register |        On/Off Mask | Value Register | Voltage Value Mask |       Feedback Ratio | Adjustability | DVBx address
+      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO      ,          true , &PM_3V3_DVBx       },
+      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO  ,          true , &PM_AVDD_WR_DVBx   },
+      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WL_FB_RATIO  ,          true , &PM_AVDD_WL_DVBx   },
+      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO,          true , &PM_AVDD_RRAM_DVBx },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,               0,                   0,                     0,         false ,               NULL },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,               0,                   0,                     0,         false ,               NULL },
       { NULL }
     };
 
