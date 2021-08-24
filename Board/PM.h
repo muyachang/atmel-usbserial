@@ -144,22 +144,50 @@
     /**
      * Calculate the DVB value based on the target voltage (mV) and the ratio of the feedback resistors
      */
-    static inline uint8_t PM_Encode_DVBx(uint16_t _target_voltage, uint8_t _feedback_ratio) 
+    static inline uint8_t PM_Encode_DVBx(regulator_structure_t* _regulator, uint16_t _target_voltage) 
     {
-      int8_t DVBx = (int8_t)((((float)_target_voltage)/(1.0+(float)_feedback_ratio)-412.5)/12.5);
-      if(DVBx < 0)
-        DVBx = 0;
-      else if(DVBx >= _BV(5))
-        DVBx = _BV(5)-1;
+      int8_t DVBx = (int8_t)((((float)_target_voltage)/(1.0+(float)_regulator->feedback_ratio)-412.5)/12.5);
+      if(DVBx < 0){
+        // Special care for AVDD_WR
+             if((0 == strcmp(_regulator->name, "AVDD_WR")) && (_regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH)){
+          _regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW;
+          PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
+          DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
+        }
+        // Special care for AVDD_WL
+        else if((0 == strcmp(_regulator->name, "AVDD_WL")) && (_regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH)){
+          _regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW;
+          PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
+          DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
+        }
+        else
+          DVBx = 0;
+      }
+      else if(DVBx >= _BV(5)){
+        // Special care for AVDD_WR
+             if((0 == strcmp(_regulator->name, "AVDD_WR")) && (_regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW)){
+          _regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH;
+          PM_AVDD_WR_FB_SEL_POUT |=  PM_AVDD_WR_FB_SEL_MASK; // Select High FB
+          DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
+        }
+        // Special care for AVDD_WL
+        else if((0 == strcmp(_regulator->name, "AVDD_WL")) && (_regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW)){
+          _regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH;
+          PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
+          DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
+        }
+        else
+          DVBx = _BV(5)-1;
+      }
       return (uint8_t) DVBx;
     }
 
     /**
      * Calculate the voltage (mV) based on the DVB value and the ratio of the feedback resistors
      */
-    static inline uint16_t PM_Decode_DVBx(uint8_t _code, uint8_t _feedback_ratio) 
+    static inline uint16_t PM_Decode_DVBx(regulator_structure_t* _regulator, uint8_t _code) 
     {
-      return (uint16_t) ((1.0+(float)_feedback_ratio)*((float)_code*12.5+412.5));
+      return (uint16_t) ((1.0+(float)_regulator->feedback_ratio)*((float)_code*12.5+412.5));
     }
 
     /**
@@ -189,18 +217,54 @@
       /* Get the original binary code and adjust it if needed */
       uint8_t oldDVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
       uint8_t newDVBx;
-      uint16_t oldVoltage = PM_Decode_DVBx(oldDVBx, regulator->feedback_ratio);
+      uint16_t oldVoltage = PM_Decode_DVBx(regulator, oldDVBx);
 
       if(_mode == PM_ADJUST_MODE_ABSOLUTE)
-        newDVBx = PM_Encode_DVBx(             _target_voltage, regulator->feedback_ratio);
+        newDVBx = PM_Encode_DVBx(regulator,              _target_voltage);
       else if(_mode == PM_ADJUST_MODE_PLUS)
-        newDVBx = PM_Encode_DVBx(oldVoltage + _target_voltage, regulator->feedback_ratio);
+        newDVBx = PM_Encode_DVBx(regulator, oldVoltage + _target_voltage);
       else if(_mode == PM_ADJUST_MODE_MINUS)
-        newDVBx = PM_Encode_DVBx(oldVoltage - _target_voltage, regulator->feedback_ratio);
-      else if(_mode == PM_ADJUST_MODE_INCREMENT)
-        newDVBx = oldDVBx + 1 >= _BV(5)? _BV(5) - 1: oldDVBx + 1;
-      else if(_mode == PM_ADJUST_MODE_DECREMENT)
-        newDVBx = (int8_t)oldDVBx - 1 < 0? 0: oldDVBx - 1;
+        newDVBx = PM_Encode_DVBx(regulator, oldVoltage - _target_voltage);
+      else if(_mode == PM_ADJUST_MODE_INCREMENT){
+        if(oldDVBx + 1 >= _BV(5)){
+          // Special care for AVDD_WR
+               if((0 == strcmp(regulator->name, "AVDD_WR")) && (regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW)){
+            regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH;
+            PM_AVDD_WR_FB_SEL_POUT |=  PM_AVDD_WR_FB_SEL_MASK; // Select High FB
+            newDVBx = 1; // Not 0 here, just to make sure it's larger then the maximum of PM_AVDD_WR_FB_RATIO_LOW
+          }
+          // Special care for AVDD_WL
+          else if((0 == strcmp(regulator->name, "AVDD_WL")) && (regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW)){
+            regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH;
+            PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
+            newDVBx = 1; // Not 0 here, just to make sure it's larger then the maximum of PM_AVDD_WL_FB_RATIO_LOW
+          }
+          else
+            newDVBx = _BV(5) - 1;
+        }
+        else
+          newDVBx = oldDVBx + 1;
+      }
+      else if(_mode == PM_ADJUST_MODE_DECREMENT){
+        if((int8_t)oldDVBx - 1 < 0){
+          // Special care for AVDD_WR
+               if((0 == strcmp(regulator->name, "AVDD_WR")) && (regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH)){
+            regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW;
+            PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
+            newDVBx = _BV(5) - 2; // Not _BV(5) - 1 here, just to make sure it's smaller then the manimum of PM_AVDD_WL_FB_RATIO_HIGH
+          }
+          // Special care for AVDD_WL
+          else if((0 == strcmp(regulator->name, "AVDD_WL")) && (regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH)){
+            regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW;
+            PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
+            newDVBx = _BV(5) - 2; // Not _BV(5) - 1 here, just to make sure it's smaller then the manimum of PM_AVDD_WL_FB_RATIO_HIGH
+          }
+          else
+            newDVBx = 0;
+        }
+        else
+          newDVBx = oldDVBx - 1;
+      }
       else
         newDVBx = oldDVBx;
 
@@ -233,7 +297,7 @@
         return -1;
 
       /* Otherwise we read the voltage */
-      return PM_Decode_DVBx(PM_ReadReg(regulator->value_reg) & regulator->value_mask, regulator->feedback_ratio);
+      return PM_Decode_DVBx(regulator, PM_ReadReg(regulator->value_reg) & regulator->value_mask);
     }
 
     /**
@@ -391,10 +455,9 @@
     static inline void PM_Init(void)
     {
       /* Set FB for both WR and WL low so the voltages are low */
-      PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Pull low
+      PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
       PM_AVDD_WR_FB_SEL_DDR  |=  PM_AVDD_WR_FB_SEL_MASK; // Set it as output
-
-      PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Pull low
+      PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
       PM_AVDD_WL_FB_SEL_DDR  |=  PM_AVDD_WL_FB_SEL_MASK; // Set it as output
 
       /* Set interrupt pins as input and enables the pull-up resistor */
