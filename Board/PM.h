@@ -146,15 +146,18 @@
      */
     static inline uint8_t PM_Encode_DVBx(regulator_structure_t* _regulator, uint16_t _target_voltage) 
     {
+      // Calculate the new DVBx based on the current feedback_ratio
       int8_t DVBx = (int8_t)((((float)_target_voltage)/(1.0+(float)_regulator->feedback_ratio)-412.5)/12.5);
+
+      // If the target voltage is too low
       if(DVBx < 0){
-        // Special care for AVDD_WR
+        // AVDD_WR supports dual feedback
              if((0 == strcmp(_regulator->name, "AVDD_WR")) && (_regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH)){
           _regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW;
           PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
           DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
         }
-        // Special care for AVDD_WL
+        // AVDD_WL supports dual feedback
         else if((0 == strcmp(_regulator->name, "AVDD_WL")) && (_regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH)){
           _regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW;
           PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
@@ -163,14 +166,15 @@
         else
           DVBx = 0;
       }
+      // If the target voltage is too high
       else if(DVBx >= _BV(5)){
-        // Special care for AVDD_WR
+        // AVDD_WR supports dual feedback
              if((0 == strcmp(_regulator->name, "AVDD_WR")) && (_regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW)){
           _regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH;
           PM_AVDD_WR_FB_SEL_POUT |=  PM_AVDD_WR_FB_SEL_MASK; // Select High FB
           DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
         }
-        // Special care for AVDD_WL
+        // AVDD_WL supports dual feedback
         else if((0 == strcmp(_regulator->name, "AVDD_WL")) && (_regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW)){
           _regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH;
           PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
@@ -227,13 +231,13 @@
         newDVBx = PM_Encode_DVBx(regulator, oldVoltage - _target_voltage);
       else if(_mode == PM_ADJUST_MODE_INCREMENT){
         if(oldDVBx + 1 >= _BV(5)){
-          // Special care for AVDD_WR
+          // AVDD_WR supports dual feedback
                if((0 == strcmp(regulator->name, "AVDD_WR")) && (regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW)){
             regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH;
             PM_AVDD_WR_FB_SEL_POUT |=  PM_AVDD_WR_FB_SEL_MASK; // Select High FB
             newDVBx = 1; // Not 0 here, just to make sure it's larger then the maximum of PM_AVDD_WR_FB_RATIO_LOW
           }
-          // Special care for AVDD_WL
+          // AVDD_WL supports dual feedback
           else if((0 == strcmp(regulator->name, "AVDD_WL")) && (regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW)){
             regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH;
             PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
@@ -247,13 +251,13 @@
       }
       else if(_mode == PM_ADJUST_MODE_DECREMENT){
         if((int8_t)oldDVBx - 1 < 0){
-          // Special care for AVDD_WR
+          // AVDD_WR supports dual feedback
                if((0 == strcmp(regulator->name, "AVDD_WR")) && (regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH)){
             regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW;
             PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
             newDVBx = _BV(5) - 2; // Not _BV(5) - 1 here, just to make sure it's smaller then the manimum of PM_AVDD_WL_FB_RATIO_HIGH
           }
-          // Special care for AVDD_WL
+          // AVDD_WL supports dual feedback
           else if((0 == strcmp(regulator->name, "AVDD_WL")) && (regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH)){
             regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW;
             PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
@@ -427,6 +431,10 @@
         Dataflash_Init();
       }
       else{
+        /* Feedback Selects */
+        PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
+        PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
+
         /* Disable Protocols */
         SPI_ShutDown();
         SW_ShutDown();
