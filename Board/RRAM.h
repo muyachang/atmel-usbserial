@@ -14,9 +14,9 @@
       #define RRAM_NTRST_LINE_DDR  DDRD
       #define RRAM_NTRST_LINE_MASK _BV(6)
 
-      #define RRAM_NRST_LINE_PORT  PORTD
-      #define RRAM_NRST_LINE_DDR   DDRD
-      #define RRAM_NRST_LINE_MASK  _BV(7)
+      #define RRAM_NRST_LINE_PORT  PORTB
+      #define RRAM_NRST_LINE_DDR   DDRB
+      #define RRAM_NRST_LINE_MASK  _BV(0)
 
       #define RRAM_ROM_SIZE 131072 // 128KB
       #define RRAM_RAM_SIZE 524288 // 512KB
