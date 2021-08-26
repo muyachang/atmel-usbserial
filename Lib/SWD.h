@@ -107,6 +107,7 @@
       /* ROM Address */
       #define SW_ROM_ADDR 0x00000000
 
+      #define SW_DELAY 200
   #endif
 
   /* Public Interface - May be used in end-application: */
@@ -131,10 +132,10 @@
      */
     static inline void SW_Init(void)
     {
-      SW_DIO_POUT |=  SW_DIO_MASK; // Pull up DIO
-      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output
+      SW_DIO_POUT |=  SW_DIO_MASK; // Enable the pull-up resistor
+      SW_DIO_DDR  &= ~SW_DIO_MASK; // Set it as an input 
 
-      SW_CLK_POUT |=  SW_CLK_MASK; // Pull up CLK
+      SW_CLK_POUT &= ~SW_CLK_MASK; // Pull low CLK
       SW_CLK_DDR  |=  SW_CLK_MASK; // Set it as an output
     }
 
@@ -156,8 +157,11 @@
     static inline void SW_PulseClock(uint8_t cycles)
     {
       for(uint8_t i=0;i<cycles;i++){
+        _delay_us(SW_DELAY);
         SW_CLK_POUT ^= SW_CLK_MASK;
+        _delay_us(SW_DELAY);
         SW_CLK_POUT ^= SW_CLK_MASK;
+        _delay_us(SW_DELAY);
       }
     }
 
@@ -166,10 +170,16 @@
      */
     static inline void SW_LineReset(void)
     {
-      SW_DIO_POUT |=  SW_DIO_MASK;
+      SW_DIO_POUT |=  SW_DIO_MASK; // Pull high DIO
+      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output 
       SW_PulseClock(50);
-      SW_DIO_POUT &= ~SW_DIO_MASK;
+
+      SW_DIO_POUT &= ~SW_DIO_MASK; // Pull low DIO
+      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output 
       SW_PulseClock(50);
+
+      SW_DIO_POUT |=  SW_DIO_MASK; // Enable the pull-up resistor
+      SW_DIO_DDR  &= ~SW_DIO_MASK; // Set it as an input 
     }
 
     /**
@@ -177,6 +187,8 @@
      */
     static inline void SW_Send(uint32_t _data, uint8_t _bits)
     {
+      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output 
+
       /* Send the bits part */
       for(uint8_t i = 0; i<_bits; i++){
         /* DIO */
@@ -188,6 +200,9 @@
         /* Toggle CLK */
         SW_PulseClock(1);
       }
+
+      SW_DIO_POUT |=  SW_DIO_MASK; // Enable the pull-up resistor
+      SW_DIO_DDR  &= ~SW_DIO_MASK; // Set it as an input 
     }
 
     /**
@@ -197,19 +212,11 @@
     {
       uint32_t result = 0;
 
-      /* Set DIO as input */
-      SW_DIO_POUT |=  SW_DIO_MASK; // Enable the pull-up resistor
-      SW_DIO_DDR  &= ~SW_DIO_MASK; // Set it as input
-
       /* Receive the byte part */
       for(uint8_t i = 0; i<_bits; i++){
         result |= (SW_DIO_PIN & SW_DIO_MASK)? _BV(i): 0; // Sample DIO 
         SW_PulseClock(1);
       }
-
-      /* Set DIO as output */
-      SW_DIO_POUT |=  SW_DIO_MASK; // Pull up DIO
-      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output
 
       return result;
     }
@@ -236,12 +243,19 @@
                 
       // Send the request and wait for the acknowledgement
       ack = SW_DP_ACK_WAIT;
-      do {
-        SW_Send(request, 8); // Request
+      //do {
+      //  SW_Send(request, 8); // Request
+      //  SW_PulseClock(1); // TM
+      //  if((ack = SW_Receive(3)) == SW_DP_ACK_WAIT) // Ack
+      //    SW_PulseClock(1); // TM
+      //} while((ack = SW_DP_ACK_WAIT));
+
+      SW_Send(request, 8); // Request
+      SW_PulseClock(1); // TM
+      if((ack = SW_Receive(3)) == SW_DP_ACK_WAIT) // Ack
         SW_PulseClock(1); // TM
-        if((ack = SW_Receive(3)) == SW_DP_ACK_WAIT) // Ack
-          SW_PulseClock(1); // TM
-      } while((ack = SW_DP_ACK_WAIT));
+
+      _delay_us(3*SW_DELAY);
 
       // Read/Write
       if(_RnW == SW_REQ_WRITE_MASK){
@@ -263,10 +277,17 @@
     static inline void SW_JTAGToSW(void)
     {
       SW_DIO_POUT |=  SW_DIO_MASK; // Pull up DIO
+      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output 
       SW_PulseClock(50);
+
       SW_Send(SW_CMD_JTAG_TO_SWD, 16);
+
       SW_DIO_POUT |=  SW_DIO_MASK; // Pull up DIO
+      SW_DIO_DDR  |=  SW_DIO_MASK; // Set it as an output 
       SW_PulseClock(50);
+
+      SW_DIO_POUT |=  SW_DIO_MASK; // Enable the pull-up resistor
+      SW_DIO_DDR  &= ~SW_DIO_MASK; // Set it as an input 
     }
 
     /**
@@ -274,7 +295,7 @@
      */
     static inline void SW_Connect(void)
     {
-      SW_LineReset();
+      //SW_LineReset();
       SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_DPIDR, 0);
     }
 
