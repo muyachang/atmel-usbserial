@@ -386,12 +386,12 @@
       /* Enable the low voltages first */
       PM_Enable("VDD");
       PM_Enable("AVDD_SRAM");
-      PM_Enable("AVDD_RRAM");
+      //PM_Enable("AVDD_RRAM");
 
       /* Enable the high voltages second */
       PM_Enable("3V3");
-      PM_Enable("AVDD_WR");
-      PM_Enable("AVDD_WL");
+      //PM_Enable("AVDD_WR");
+      //PM_Enable("AVDD_WL");
     }
     
     /**
