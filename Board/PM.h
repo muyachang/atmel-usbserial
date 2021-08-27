@@ -23,7 +23,7 @@
       #define PM_WAKE_INT_MASK        _BV(INT0)
       #define PM_WAKE_INT_TYPE_REG    EICRA
       #define PM_WAKE_INT_TYPE_LOC    0 
-      #define PM_WAKE_INT_TYPE_MASK   _BV(ISC00)|_BV(ISC01)
+      #define PM_WAKE_INT_TYPE_MASK   (_BV(ISC00)|_BV(ISC01))
 
       #define PM_NIRQ_PIN             PIND
       #define PM_NIRQ_POUT            PORTD
@@ -430,20 +430,21 @@
         DAC_Init();
         Dataflash_Init();
       }
-      else{
-        /* Feedback Selects */
-        PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
-        PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
+      else
+      {
+        ///* Feedback Selects */
+        //PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
+        //PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
 
-        /* Disable Protocols */
-        SPI_ShutDown();
-        SW_ShutDown();
+        ///* Disable Protocols */
+        //SPI_ShutDown();
+        //SW_ShutDown();
 
-        /* Disable Board Components */
-        RRAM_ShutDown();
-        LEDs_ShutDown();
-        DAC_ShutDown();
-        Dataflash_ShutDown();
+        ///* Disable Board Components */
+        //RRAM_ShutDown();
+        //LEDs_ShutDown();
+        //DAC_ShutDown();
+        //Dataflash_ShutDown();
       }
     }
 
@@ -474,13 +475,13 @@
       PM_NIRQ_POUT  |=  PM_NIRQ_MASK ; // Enable the pull up resistor
       PM_NIRQ_DDR   &= ~PM_NIRQ_MASK ; // Set it as input
 
-      /* Enable External Interrupt Mask Register */
-      PM_WAKE_INT_REG |= PM_WAKE_INT_MASK;
-      PM_NIRQ_INT_REG |= PM_NIRQ_INT_MASK;
-
       /* Configure Interrupt Sense */
       PM_WAKE_INT_TYPE_REG = (PM_WAKE_INT_TYPE_REG & ~PM_WAKE_INT_TYPE_MASK) | (1 << PM_WAKE_INT_TYPE_LOC); // Any edge detection
       PM_NIRQ_INT_TYPE_REG = (PM_NIRQ_INT_TYPE_REG & ~PM_NIRQ_INT_TYPE_MASK) | (0 << PM_NIRQ_INT_TYPE_LOC); // Low level detection
+
+      /* Enable External Interrupt Mask Register */
+      PM_WAKE_INT_REG |= PM_WAKE_INT_MASK;
+      PM_NIRQ_INT_REG |= PM_NIRQ_INT_MASK;
       
       /* Execute at startup in case the power was already on */
       INT0_vect();
