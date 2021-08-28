@@ -68,37 +68,37 @@
       #define SW_REG_DP_TARGETSEL 0xc
 
       /* AP CSW Register Fields */
-      #define SW_REG_AP_CSW_PROT_USER_MASK        (0<<25)
-      #define SW_REG_AP_CSW_PROT_PRIV_MASK        _BV(25)
-      #define SW_REG_AP_CSW_PROT_BUFF_MASK        _BV(26)
-      #define SW_REG_AP_CSW_PROT_CACH_MASK        _BV(27)
-      #define SW_REG_AP_CSW_PROT_MASTER_CORE_MASK (0<<29)
-      #define SW_REG_AP_CSW_PROT_MASTER_DBG_MASK  _BV(29)
-      #define SW_REG_AP_CSW_INCR_OFF_MASK         (0<< 4)
-      #define SW_REG_AP_CSW_INCR_SINGLE_MASK      _BV( 4)
+      #define SW_REG_AP_CSW_PROT_USER_MASK        ((uint32_t)0<<25)
+      #define SW_REG_AP_CSW_PROT_PRIV_MASK        ((uint32_t)1<<25)
+      #define SW_REG_AP_CSW_PROT_BUFF_MASK        ((uint32_t)1<<26)
+      #define SW_REG_AP_CSW_PROT_CACH_MASK        ((uint32_t)1<<27)
+      #define SW_REG_AP_CSW_PROT_MASTER_CORE_MASK ((uint32_t)0<<29)
+      #define SW_REG_AP_CSW_PROT_MASTER_DBG_MASK  ((uint32_t)1<<29)
+      #define SW_REG_AP_CSW_INCR_OFF_MASK         ((uint32_t)0<< 4)
+      #define SW_REG_AP_CSW_INCR_SINGLE_MASK      ((uint32_t)1<< 4)
       #define SW_REG_AP_CSW_SIZE_BYTE_MASK        0
       #define SW_REG_AP_CSW_SIZE_HALFWORD_MASK    1
       #define SW_REG_AP_CSW_SIZE_WORD_MASK        2
 
       /* DP CTRLSTAT Register Fields */
-      #define SW_REG_DP_CTRLSTAT_CSYSPWRUPACK_MASK _BV(31) //System power up ack, RO
-      #define SW_REG_DP_CTRLSTAT_CSYSPWRUPREQ_MASK _BV(30) //System power up req, RW
-      #define SW_REG_DP_CTRLSTAT_CDBGPWRUPACK_MASK _BV(29) //Debug  power up ack, RO
-      #define SW_REG_DP_CTRLSTAT_CDBGPWRUPREQ_MASK _BV(28) //Debug  power up req, RW
-      #define SW_REG_DP_CTRLSTAT_CDBGRSTACK_MASK   _BV(27) //Debug  reset    ack, RO
-      #define SW_REG_DP_CTRLSTAT_CDBGRSTREQ_MASK   _BV(26) //Debug  reset    req, RW
+      #define SW_REG_DP_CTRLSTAT_CSYSPWRUPACK_MASK ((uint32_t)1<<31) //System power up ack, RO
+      #define SW_REG_DP_CTRLSTAT_CSYSPWRUPREQ_MASK ((uint32_t)1<<30) //System power up req, RW
+      #define SW_REG_DP_CTRLSTAT_CDBGPWRUPACK_MASK ((uint32_t)1<<29) //Debug  power up ack, RO
+      #define SW_REG_DP_CTRLSTAT_CDBGPWRUPREQ_MASK ((uint32_t)1<<28) //Debug  power up req, RW
+      #define SW_REG_DP_CTRLSTAT_CDBGRSTACK_MASK   ((uint32_t)1<<27) //Debug  reset    ack, RO
+      #define SW_REG_DP_CTRLSTAT_CDBGRSTREQ_MASK   ((uint32_t)1<<26) //Debug  reset    req, RW
 
       /* ARMv6M and ARMv7M Architectural Debug Register Definitions */
       #define SW_REG_DHCSR_ADDR      0xE000EDF0
       #define SW_REG_DBGKEY          0xA05F0000
-      #define SW_REG_S_LOCKUP_MASK   _BV(19)
-      #define SW_REG_S_SLEEP_MASK    _BV(18)
-      #define SW_REG_S_HALT_MASK     _BV(17)
-      #define SW_REG_S_REGRDY_MASK   _BV(16)
-      #define SW_REG_C_MASKINTS_MASK _BV(3)
-      #define SW_REG_C_STEP_MASK     _BV(2)
-      #define SW_REG_C_HALT_MASK     _BV(1)
-      #define SW_REG_C_DEBUGEN_MASK  _BV(0)
+      #define SW_REG_S_LOCKUP_MASK   ((uint32_t)1<<19)
+      #define SW_REG_S_SLEEP_MASK    ((uint32_t)1<<18)
+      #define SW_REG_S_HALT_MASK     ((uint32_t)1<<17)
+      #define SW_REG_S_REGRDY_MASK   ((uint32_t)1<<16)
+      #define SW_REG_C_MASKINTS_MASK ((uint32_t)1<<3)
+      #define SW_REG_C_STEP_MASK     ((uint32_t)1<<2)
+      #define SW_REG_C_HALT_MASK     ((uint32_t)1<<1)
+      #define SW_REG_C_DEBUGEN_MASK  ((uint32_t)1<<0)
       #define SW_REG_DCRDR_ADDR      0xE000EDF8
       #define SW_REG_DEMCR_ADDR      0xE000EDFC
       #define SW_REG_AIRCR_ADDR      0xE000ED0C
@@ -107,7 +107,7 @@
       /* ROM Address */
       #define SW_ROM_ADDR 0x00000000
 
-      #define SW_DELAY 200
+      #define SW_DELAY 0
   #endif
 
   /* Public Interface - May be used in end-application: */
@@ -214,7 +214,7 @@
 
       /* Receive the byte part */
       for(uint8_t i = 0; i<_bits; i++){
-        result |= (SW_DIO_PIN & SW_DIO_MASK)? _BV(i): 0; // Sample DIO 
+        result |= (SW_DIO_PIN & SW_DIO_MASK)? (uint32_t)1<<i: 0; // Sample DIO 
         SW_PulseClock(1);
       }
 
@@ -243,19 +243,14 @@
                 
       // Send the request and wait for the acknowledgement
       ack = SW_DP_ACK_WAIT;
-      //do {
-      //  SW_Send(request, 8); // Request
-      //  SW_PulseClock(1); // TM
-      //  if((ack = SW_Receive(3)) == SW_DP_ACK_WAIT) // Ack
-      //    SW_PulseClock(1); // TM
-      //} while((ack = SW_DP_ACK_WAIT));
-
-      SW_Send(request, 8); // Request
-      SW_PulseClock(1); // TM
-      if((ack = SW_Receive(3)) == SW_DP_ACK_WAIT) // Ack
+      do {
+        SW_Send(request, 8); // Request
         SW_PulseClock(1); // TM
+        if((ack = SW_Receive(3)) == SW_DP_ACK_WAIT) // Ack
+          SW_PulseClock(1); // TM
+      } while(ack == SW_DP_ACK_WAIT);
 
-      _delay_us(3*SW_DELAY);
+      _delay_us(5*SW_DELAY);
 
       // Read/Write
       if(_RnW == SW_REQ_WRITE_MASK){
@@ -268,6 +263,9 @@
         SW_PulseClock(1); // Parity
         SW_PulseClock(1); // TM
       }
+
+      _delay_us(5*SW_DELAY);
+
       return data;
     }
 
@@ -293,10 +291,9 @@
     /**
      *
      */
-    static inline void SW_Connect(void)
+    static inline uint32_t SW_Connect(void)
     {
-      //SW_LineReset();
-      SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_DPIDR, 0);
+      return SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_DPIDR, 0);
     }
 
     /**
