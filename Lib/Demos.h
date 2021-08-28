@@ -11,9 +11,9 @@
     /* Regulator Map */
     demos_structure_t demos_map[] = {
       // Name      | Sector Number
-      { "user"     ,          0*0},
-      { "hello"    ,          1*2},
-      { "dhry"     ,          2*2}
+      { "user"     ,          0*2+1},
+      { "hello"    ,          1*2+1},
+      { "dhry"     ,          2*2+1}
     };
 
 
