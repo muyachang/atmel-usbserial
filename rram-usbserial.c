@@ -90,7 +90,7 @@ void SetupHardware(void)
 
   /* Protocol Initialization */
   USB_Init();
-  Serial_Init(9600, false);
+  Serial_Init(115200, false);
 
   /* Power Initialization */
   PM_Init();
@@ -176,5 +176,8 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t* const C
 ISR(USART1_RX_vect, ISR_BLOCK)
 {
   /* USART -> Buffer */
-  RingBuffer_Insert(&USARTtoUSB_Buffer, UDR1);
+  uint8_t temp = UDR1;
+  if(temp == '\n')
+    RingBuffer_Insert(&USARTtoUSB_Buffer, '\r');
+  RingBuffer_Insert(&USARTtoUSB_Buffer, temp);
 }
