@@ -523,7 +523,7 @@
       PM_NIRQ_INT_REG |= PM_NIRQ_INT_MASK;
       
       /* Execute at startup in case the power was already on */
-      INT0_vect();
+      //INT0_vect();
     }
     
 
