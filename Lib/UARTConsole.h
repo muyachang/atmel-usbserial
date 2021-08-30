@@ -10,12 +10,12 @@
 #include "PM.h"
 #include "DAC.h"
 #include "Dataflash.h"
-#include "RRAM.h"
+#include "TC.h"
 #include "Demos.h"
 #include "ASCII.h"
 
 #define PROMPT "ICSRL>\0"
-#define HEADER "<< RRAM Terminal >>\r\n"
+#define HEADER "<< TC Terminal >>\r\n"
 
 /* char array for storing the command */
 char command[32];
@@ -478,8 +478,8 @@ static inline void UARTConsole_ProcessCommand(void)
   //  }
   //}
 
-  /* RRAM */
-  else if(strcmp("RRAM", parameter[0]) == 0){
+  /* RRAM Testchip (TC) */
+  else if(strcmp("TC", parameter[0]) == 0){
     if(strcmp("connect", parameter[1]) == 0){
       // Enable SW Mode
       SW_LineReset();
@@ -509,6 +509,14 @@ static inline void UARTConsole_ProcessCommand(void)
       uint32_t address = atoi(parameter[2]);
       uint32_t value = atoi(parameter[3]);
       SW_WriteMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK, value);
+    }
+    else{ // Unknow command here, forward to RRAM testchip
+      for(uint8_t i=1;i<=3;i++)
+        if(parameter[i]){
+          Serial_TxString(parameter[i]);
+          Serial_TxString(" ");
+        }
+      Serial_TxString("\n");
     }
   }
 
@@ -550,8 +558,8 @@ static inline void UARTConsole_ProcessCommand(void)
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
       Dataflash_SelectChip(DATAFLASH_CHIP1);
       Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, demos_map[index].sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
-      uint32_t step = RRAM_ROM_SIZE/16;
-      for(uint32_t i=0; i < RRAM_ROM_SIZE; i+=4){
+      uint32_t step = TC_ROM_SIZE/16;
+      for(uint32_t i=0; i < TC_ROM_SIZE; i+=4){
         uint32_t word = 0;
         word |= (uint32_t) Dataflash_ReceiveByte();
         word |= (uint32_t) Dataflash_ReceiveByte() << 8;
@@ -582,9 +590,6 @@ static inline void UARTConsole_ProcessCommand(void)
     CDC_Device_SendString(&VirtualSerial_CDC_Interface, command, count);
     UARTConsole_PrintNewLine();
   }
-  
-  /* Send it to the RRAM chip */
-  Serial_TxString(command);
   
   /* Clear the counter and the position */
   memset(command, 0, sizeof(command));
