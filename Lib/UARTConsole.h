@@ -510,14 +510,6 @@ static inline void UARTConsole_ProcessCommand(void)
       uint32_t value = atoi(parameter[3]);
       SW_WriteMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK, value);
     }
-    else{ // Unknow command here, forward to RRAM testchip
-      for(uint8_t i=1;i<=3;i++)
-        if(parameter[i]){
-          Serial_TxString(parameter[i]);
-          Serial_TxString(" ");
-        }
-      Serial_TxString("\n");
-    }
   }
 
   /* Demos */
@@ -582,6 +574,18 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(strcmp("stop", parameter[1]) == 0){
       SPI_Init(SPI_SPEED_FCPU_DIV_2 | SPI_ORDER_MSB_FIRST | SPI_SCK_LEAD_FALLING | SPI_SAMPLE_TRAILING | SPI_MODE_MASTER);
     }
+  }
+
+  /* Forwarding other commands to the testchip */
+  else if((strcmp("RRAM", parameter[0]) == 0) ||
+          (strcmp("VECTOR", parameter[0]) == 0)) {
+    for(uint8_t i=0;i<4;i++){
+      if(parameter[i]){
+        Serial_TxString(parameter[i]);
+        Serial_TxString(" ");
+      }
+    }
+    Serial_TxString("\n");
   }
 
   /* Unknown command, loop it back to the CDC */
