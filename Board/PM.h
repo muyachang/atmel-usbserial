@@ -10,7 +10,7 @@
   #include "I2C.h"
   #include "SWD.h"
   #include "DAC.h"
-  #include "RRAM.h"
+  #include "TC.h"
 
   /* Private Interface - For use in library only: */
   #if !defined(__DOXYGEN__)
@@ -464,7 +464,7 @@
         SW_Init();
 
         /* Enable Board Components */
-        RRAM_Init();
+        TC_Init();
         LEDs_Init();
         DAC_Init();
         Dataflash_Init();
@@ -480,7 +480,7 @@
         SW_ShutDown();
 
         /* Disable Board Components */
-        RRAM_ShutDown();
+        TC_ShutDown();
         LEDs_ShutDown();
         DAC_ShutDown();
         Dataflash_ShutDown();

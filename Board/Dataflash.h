@@ -2,8 +2,8 @@
    Board Dataflash driver for the RRAM Testchip
 */
 
-#ifndef __DATAFLASH_RRAM_TESTCHIP_H__
-#define __DATAFLASH_RRAM_TESTCHIP_H__
+#ifndef __DATAFLASH_RRAM_H__
+#define __DATAFLASH_RRAM_H__
 
   /* Includes: */
     #include "AT45DB321E.h"
