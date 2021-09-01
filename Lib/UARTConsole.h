@@ -129,10 +129,10 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Process the command */
   char *token;
-  char *parameter[4];
+  char *parameter[5];
 
   token = strtok(command, " ");
-  for(uint8_t i=0;i<4;i++){
+  for(uint8_t i=0;i<5;i++){
     parameter[i] = token;
     token = strtok(NULL, " ");
   }
@@ -498,6 +498,9 @@ static inline void UARTConsole_ProcessCommand(void)
       // Halt the core
       SW_HaltCore();
     }
+    else if(strcmp("reset", parameter[1]) == 0){
+      TC_Reset();
+    }
     else if(strcmp("read", parameter[1]) == 0){
       uint32_t address = atoi(parameter[2]);
       uint32_t value = SW_ReadMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK);
@@ -579,7 +582,7 @@ static inline void UARTConsole_ProcessCommand(void)
   /* Forwarding other commands to the testchip */
   else if((strcmp("RRAM", parameter[0]) == 0) ||
           (strcmp("VECTOR", parameter[0]) == 0)) {
-    for(uint8_t i=0;i<4;i++){
+    for(uint8_t i=0;i<5;i++){
       if(parameter[i]){
         Serial_TxString(parameter[i]);
         Serial_TxString(" ");
