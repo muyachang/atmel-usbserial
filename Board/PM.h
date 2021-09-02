@@ -88,13 +88,13 @@
     } regulator_structure_t;
 
     /* EEPROM data */
+    __attribute__((section(".eeprom"))) float    PM_AVDD_WR_FB_RATIO = PM_AVDD_WR_FB_RATIO_LOW;
+    __attribute__((section(".eeprom"))) float    PM_AVDD_WL_FB_RATIO = PM_AVDD_WL_FB_RATIO_LOW;
+
     __attribute__((section(".eeprom"))) uint8_t  PM_3V3_DVBx         = 20;
     __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WR_DVBx     = 0;
     __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WL_DVBx     = 0;
     __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_RRAM_DVBx   = 11;
-
-    __attribute__((section(".eeprom"))) float    PM_AVDD_WR_FB_RATIO = PM_AVDD_WR_FB_RATIO_LOW;
-    __attribute__((section(".eeprom"))) float    PM_AVDD_WL_FB_RATIO = PM_AVDD_WL_FB_RATIO_LOW;
 
     __attribute__((section(".eeprom"))) uint8_t  PM_3V3_STATUS       = PM_BUCK_ENABLE_MASK;
     __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WR_STATUS   = 0;
@@ -543,8 +543,9 @@
       PM_WAKE_INT_REG |= PM_WAKE_INT_MASK;
       PM_NIRQ_INT_REG |= PM_NIRQ_INT_MASK;
       
-      /* Execute at startup in case the power was already on */
-      //INT0_vect();
+      /* Run interrupt in case it was already powered up */
+      if(PM_WAKE_PIN & PM_WAKE_MASK)
+        INT0_vect();
     }
     
 
