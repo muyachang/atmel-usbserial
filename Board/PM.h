@@ -76,14 +76,15 @@
 
     /* Data structure */
     typedef struct {
-      const char     *name;
-      const uint8_t  on_off_reg;
-      const uint8_t  on_off_mask;
-      const uint8_t  value_reg;
-      const uint8_t  value_mask;
-            float    feedback_ratio;
-      const bool     adjustable;
-            uint8_t* DVBx_addr; // inside EEPROM
+      const char     *name;          // String name of the voltage
+      const uint8_t  on_off_reg;     // On/Off register of the voltage
+      const uint8_t  on_off_mask;    // On/Off register mask of the voltage
+      const uint8_t  value_reg;      // Value register of the voltage
+      const uint8_t  value_mask;     // Value register mask of the voltage
+            float    feedback_ratio; // Feedback ratio of the voltage
+      const bool     adjustable;     // Whether this voltage is digitally controllable
+            uint8_t* DVBx_addr;      // Previous DVBx saved (inside EEPROM)
+            uint8_t* status_addr;    // Previous status saved (inside EEPROM)
     } regulator_structure_t;
 
     /* EEPROM data */
@@ -95,15 +96,22 @@
     __attribute__((section(".eeprom"))) float    PM_AVDD_WR_FB_RATIO = PM_AVDD_WR_FB_RATIO_LOW;
     __attribute__((section(".eeprom"))) float    PM_AVDD_WL_FB_RATIO = PM_AVDD_WL_FB_RATIO_LOW;
 
+    __attribute__((section(".eeprom"))) uint8_t  PM_3V3_STATUS       = PM_BUCK_ENABLE_MASK;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WR_STATUS   = 0;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_WL_STATUS   = 0;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_RRAM_STATUS = 0;
+    __attribute__((section(".eeprom"))) uint8_t  PM_VDD_STATUS       = 0;
+    __attribute__((section(".eeprom"))) uint8_t  PM_AVDD_SRAM_STATUS = 0;
+
     /* Regulator Map */
     regulator_structure_t regulators_map[] = {
-      // Name      | On/Off Register |        On/Off Mask | Value Register | Voltage Value Mask |         Feedback Ratio | Adjustability | DVBx address
-      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO        ,          true , &PM_3V3_DVBx       },
-      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO_LOW,          true , &PM_AVDD_WR_DVBx   },
-      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO_LOW,          true , &PM_AVDD_WL_DVBx   },
-      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO  ,          true , &PM_AVDD_RRAM_DVBx },
-      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL },
-      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL },
+      // Name      | On/Off Register |        On/Off Mask | Value Register | Voltage Value Mask |         Feedback Ratio | Adjustability | DVBx address       | Status
+      { "3V3"      ,     PM_CMD_BUCK1, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB1A, PM_BUCK_FB_REF_MASK, PM_3V3_FB_RATIO        ,          true , &PM_3V3_DVBx       , &PM_3V3_STATUS       },
+      { "AVDD_WR"  ,     PM_CMD_BUCK2, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB2A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO_LOW,          true , &PM_AVDD_WR_DVBx   , &PM_AVDD_WR_STATUS   },
+      { "AVDD_WL"  ,     PM_CMD_BUCK3, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB3A, PM_BUCK_FB_REF_MASK, PM_AVDD_WR_FB_RATIO_LOW,          true , &PM_AVDD_WL_DVBx   , &PM_AVDD_WL_STATUS   },
+      { "AVDD_RRAM",     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO  ,          true , &PM_AVDD_RRAM_DVBx , &PM_AVDD_RRAM_STATUS },
+      { "VDD"      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL , &PM_VDD_STATUS       },
+      { "AVDD_SRAM",      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL , &PM_AVDD_SRAM_STATUS },
       { NULL }
     };
 
@@ -374,11 +382,18 @@
     {
       regulator_structure_t *regulator = regulators_map;
       while(regulator->name) {
+        // Save the DVBx if it's adjustable
         if(regulator->adjustable){
           uint8_t DVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
           eeprom_write_byte(regulator->DVBx_addr, DVBx);
           eeprom_busy_wait();
         }
+
+        // Save the state
+        uint8_t status = PM_ReadReg(regulator->on_off_reg) & regulator->on_off_mask;
+        eeprom_write_byte(regulator->status_addr, status);
+        eeprom_busy_wait();
+
         regulator++;
       }
     }
@@ -406,10 +421,16 @@
             PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
         }
 
+        // Restore the DVBs if it's adjustable
         if(regulator->adjustable){
           uint8_t DVBx = eeprom_read_byte(regulator->DVBx_addr);
           PM_UpdateReg(regulator->value_reg, DVBx, regulator->value_mask);
         }
+
+        // Restore the state
+        uint8_t status = eeprom_read_byte(regulator->status_addr);
+        PM_UpdateReg(regulator->on_off_reg, status, regulator->on_off_mask);
+
         regulator++;
       }
     }
@@ -454,7 +475,7 @@
         /* Reset power voltages */
         PM_ClearIRQ();
         PM_Load();
-        PM_EnableAll();
+        //PM_EnableAll();
 
         /* Give some time for the voltage to settle */
         _delay_ms(500);
