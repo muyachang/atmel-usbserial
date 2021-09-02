@@ -427,7 +427,7 @@
       /* Enable the high voltages second */
       PM_Enable("3V3");
       PM_Enable("AVDD_WL");
-      //PM_Enable("AVDD_WR");
+      PM_Enable("AVDD_WR");
     }
     
     /**
