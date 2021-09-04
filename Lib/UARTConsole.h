@@ -520,16 +520,37 @@ static inline void UARTConsole_ProcessCommand(void)
   else if(strcmp("DEMO", parameter[0]) == 0){
     if(strcmp("list", parameter[1]) == 0){
       for(uint8_t i=0;i<sizeof(demos_map)/sizeof(demos_structure_t);i++){
+        char demo_name[24];
+        memset(demo_name, 0, sizeof(demo_name));
+        eeprom_read_block(demo_name, demos_map[i].name, sizeof(demo_name));
+
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "%u - %s\r\n",  i, demos_map[i].name);
+        sprintf(buffer, "%2u - %s\r\n",  i, demo_name);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
     else if(strcmp("load", parameter[1]) == 0){
-      // Print out the demo being loaded
+      // Check if 3.3V, VDD, AVDD_SRAM are on
+      if(!(PM_Is_Enabled("3V3") && PM_Is_Enabled("VDD") && PM_Is_Enabled("AVDD_SRAM"))){
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "3.3V, VDD, and AVDD_SRAM are not all enabled, skipping ...\r\n");
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+        return;
+      }
+
+      // Retrieve the demo information
       uint8_t index = atoi(parameter[2]);
+
+      char demo_name[24];
+      memset(demo_name, 0, sizeof(demo_name));
+      eeprom_read_block(demo_name, demos_map[index].name, sizeof(demo_name));
+
+      uint8_t sector_number = eeprom_read_byte(&demos_map[index].sector_number);
+
+      // Print out the demo being loaded
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "\"%s\" from sector %u\r\n", demos_map[index].name, demos_map[index].sector_number);
+      sprintf(buffer, "Loading \"%s\" from sector %u\r\n", demo_name, sector_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
 
@@ -553,7 +574,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
       Dataflash_SelectChip(DATAFLASH_CHIP1);
-      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, demos_map[index].sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
+      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
       uint32_t step = TC_ROM_SIZE/16;
       for(uint32_t i=0; i < TC_ROM_SIZE; i+=4){
         uint32_t word = 0;
@@ -573,6 +594,8 @@ static inline void UARTConsole_ProcessCommand(void)
     }
     else if(strcmp("run", parameter[1]) == 0){
       SW_ResetCore();
+    }
+    else if(strcmp("analyze", parameter[1]) == 0){
     }
   }
 
