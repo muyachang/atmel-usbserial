@@ -103,14 +103,15 @@ static inline void UARTConsole_Backspace(uint8_t _num){
 /*
  * 
  */
-static inline void UARTConsole_CommandInsert(uint8_t _char){
+static inline void UARTConsole_CommandInsert(uint8_t _char, bool quiet){
   
   uint8_t tmp;
   uint8_t rollBack = count - position;
 
   count++;
   while(position < count){
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, _char);
+    if(!quiet)
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, _char);
     tmp = command[position];
     command[position] = _char;
     _char = tmp;
@@ -180,9 +181,9 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(parameter[2] != NULL)
       PM_Adjust(parameter[1],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
     else{
-      //memset(buffer, 0, sizeof(buffer));
-      //sprintf(buffer, " - %10s(%3s): %4d mV\r\n", parameter[1], PM_Is_Enabled(parameter[1])?"on":"off", PM_Read_Voltage(parameter[1]));
-      //CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, " - %10s(%3s): %4d mV\r\n", parameter[1], PM_Is_Enabled(parameter[1])?"on":"off", PM_Read_Voltage(parameter[1]));
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
 
@@ -208,9 +209,9 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(parameter[2] != NULL)
       DAC_Configure_DAC(parameter[1], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
     else{
-      //memset(buffer, 0, sizeof(buffer));
-      //sprintf(buffer, " - %10s: %4d mV\r\n", parameter[1], DAC_Read_Voltage(parameter[1]));
-      //CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, " - %10s: %4d mV\r\n", parameter[1], DAC_Read_Voltage(parameter[1]));
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
 
@@ -226,18 +227,18 @@ static inline void UARTConsole_ProcessCommand(void)
       sprintf(buffer, "Byte 2: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
-    //else if(strcmp("id", parameter[1]) == 0){
-    //  Dataflash_SendByte(DF_CMD_READMANUFACTURERDEVICEINFO);
-    //  memset(buffer, 0, sizeof(buffer));
-    //  sprintf(buffer, "Manufacturer ID : 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
-    //  CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //  memset(buffer, 0, sizeof(buffer));
-    //  sprintf(buffer, "Device ID Byte 1: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
-    //  CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //  memset(buffer, 0, sizeof(buffer));
-    //  sprintf(buffer, "Device ID Byte 2: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
-    //  CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //}
+    else if(strcmp("id", parameter[1]) == 0){
+      Dataflash_SendByte(DF_CMD_READMANUFACTURERDEVICEINFO);
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "Manufacturer ID : 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "Device ID Byte 1: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "Device ID Byte 2: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+    }
     else if(strcmp("reset", parameter[1]) == 0)
       Dataflash_Reset();
     else if(strcmp("read", parameter[1]) == 0){
@@ -571,11 +572,7 @@ static inline void UARTConsole_ProcessCommand(void)
       UARTConsole_PrintNewLine();
     }
     else if(strcmp("run", parameter[1]) == 0){
-      //SPI_ShutDown();
       SW_ResetCore();
-    }
-    else if(strcmp("stop", parameter[1]) == 0){
-      SPI_Init(SPI_SPEED_FCPU_DIV_2 | SPI_ORDER_MSB_FIRST | SPI_SCK_LEAD_FALLING | SPI_SAMPLE_TRAILING | SPI_MODE_MASTER);
     }
   }
 
@@ -607,14 +604,14 @@ static inline void UARTConsole_ProcessCommand(void)
 /*
  * 
  */
-static inline void UARTConsole_InsertChar(uint8_t _char)
+static inline void UARTConsole_InsertChar(uint8_t _char, bool quiet)
 {
   if(_char == BS) // Backspace
     UARTConsole_Backspace(1);
   else if(_char == CR || _char == LF){ // Carriage Return (CR) || New line (LF)
-    UARTConsole_PrintNewLine();
-    UARTConsole_ProcessCommand();
-    UARTConsole_PrintPrompt();
+    if(!quiet) UARTConsole_PrintNewLine();
+               UARTConsole_ProcessCommand();
+    if(!quiet) UARTConsole_PrintPrompt();
   }
   else if(_char == ESC) { // ESC (Special keys)
     char _char1 = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
@@ -634,7 +631,7 @@ static inline void UARTConsole_InsertChar(uint8_t _char)
     }
   }
   else
-    UARTConsole_CommandInsert(_char);
+    UARTConsole_CommandInsert(_char, quiet);
 }
 
 #endif
