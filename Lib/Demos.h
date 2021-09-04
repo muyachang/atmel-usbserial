@@ -19,11 +19,11 @@
       //{ "apb_mux_tests"        ,        5*2+1},
       //{ "debug_tests"          ,        6*2+1},
       //{ "default_slaves_tests" ,        7*2+1},
-      { "dhry"                 ,        8*2+1},
+      //{ "dhry"                 ,        8*2+1},
       //{ "dualtimer_demo"       ,        9*2+1},
       //{ "gpio_driver_tests"    ,       10*2+1},
       //{ "gpio_tests"           ,       11*2+1},
-      { "hello"                ,       12*2+1},
+      //{ "hello"                ,       12*2+1},
       //{ "interrupt_demo"       ,       13*2+1},
       //{ "memory_tests"         ,       14*2+1},
       //{ "romtable_tests"       ,       15*2+1},
@@ -34,7 +34,7 @@
       //{ "trace_tests"          ,       20*2+1},
       //{ "uart_driver_tests"    ,       21*2+1},
       //{ "uart_tests"           ,       22*2+1},
-      //{ "watchdog_demo"        ,       23*2+1}
+      { "watchdog_demo"        ,       23*2+1}
     };
 
 #endif
