@@ -618,7 +618,7 @@ static inline void UARTConsole_ProcessCommand(void)
         Dataflash_SelectChip(DATAFLASH_CHIP1);
         Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, start_addr);
         uint16_t page;
-        for(page=0; page<(uint16_t)size*2; page+=2){ // Step 1KB
+        for(page=0; page<256; page+=2){ // Step 1KB
           uint16_t j;
           for(j=0; j<(uint16_t)DATAFLASH_PAGE_SIZE*2; j++)
             if(Dataflash_ReceiveByte()!=255){ // Not empty, we go to next 1KB page
