@@ -8,31 +8,21 @@
   /* Includes: */
     #include "DAC7612.h"
 
-  /* Private Interface - For use in library only: */
-  #if !defined(__DOXYGEN__)
-    /* Macros: */
-      #define DAC_CHIPCS_POUT    PORTB
-      #define DAC_CHIPCS_DDR     DDRB
-      #define DAC_CHIPCS_MASK    _BV(5)
-      #define DAC_LOADDACS_POUT  PORTB
-      #define DAC_LOADDACS_DDR   DDRB
-      #define DAC_LOADDACS_MASK  _BV(6)
-  #endif
+    /* Pin assignment: */
+    #define DAC_CHIPCS_POUT    PORTB
+    #define DAC_CHIPCS_DDR     DDRB
+    #define DAC_CHIPCS_MASK    _BV(5)
 
-  /* Public Interface - May be used in end-application: */
-    /* Macros: */
-      /** Mask for no dataflash chip selected. */
-      #define DAC_NO_CHIP     DAC_CHIPCS_MASK
-      #define DAC_CHIP1       (DAC_CHIPCS_MASK ^ _BV(5))
-      #define DAC_PRECISION   12 // bits
-      #define DAC_LEVELS      _BV(DAC_PRECISION)
-      #define DAC_VCC         3300 // mV
+    #define DAC_LOADDACS_POUT  PORTB
+    #define DAC_LOADDACS_DDR   DDRB
+    #define DAC_LOADDACS_MASK  _BV(6)
 
-    /* Mapping */
-    /* 
-     * VTGT_BL : DAC_A
-     * ADC_CAL : DAC_B
-     */
+    /* Mask and DAC information */
+    #define DAC_NO_CHIP     DAC_CHIPCS_MASK
+    #define DAC_CHIP1       (DAC_CHIPCS_MASK ^ _BV(5))
+    #define DAC_PRECISION   12 // bits
+    #define DAC_LEVELS      _BV(DAC_PRECISION)
+    #define DAC_VCC         3300 // mV
 
     /* Adjust mode */
     #define DAC_ADJUST_MODE_INCREMENT 0
@@ -41,10 +31,18 @@
     #define DAC_ADJUST_MODE_MINUS     3
     #define DAC_ADJUST_MODE_ABSOLUTE  4
 
+    /* Mapping */
+    /* 
+     * VTGT_BL: DAC_A
+     * ADC_CAL: DAC_B 
+     */
+    #define DAC_VTGT_BL     0x41
+    #define DAC_ADC_CAL     0x42
+
     /* Data structure */
     typedef struct {
-      const char     *name;
-      const uint8_t  value_reg;
+      const uint8_t   name;
+      const uint8_t   value_reg;
             uint16_t* current_level; // Current binary value for the corresponding voltage (inside EEPROM)
     } dac_structure_t;
 
@@ -54,8 +52,8 @@
 
     dac_structure_t dacs_map[] = {
       // Name      | Value Register | Level Address
-      { "VTGT_BL"  , LOAD_DAC_REG_A , &DAC_VTGT_BL_Level}, 
-      { "ADC_CAL"  , LOAD_DAC_REG_B , &DAC_ADC_CAL_Level}, 
+      { DAC_VTGT_BL, LOAD_DAC_REG_A , &DAC_VTGT_BL_Level}, 
+      { DAC_ADC_CAL, LOAD_DAC_REG_B , &DAC_ADC_CAL_Level}, 
       { NULL }
     };
 
@@ -64,10 +62,10 @@
       /**
        * Function for finding the pointer of the target
        */
-      static inline dac_structure_t* DAC_Find_Target(const char* _target) { 
+      static inline dac_structure_t* DAC_Find_Target(const uint8_t _target) { 
         dac_structure_t *candidate = dacs_map;
         while(candidate->name) {
-          if( 0 == strcmp(_target, candidate->name))
+          if(_target == candidate->name)
             break;
           else
             candidate++;
@@ -96,7 +94,7 @@
       /** 
        *  For the selected DAC chip, set the _target DAC to the _mVolt  
        */
-      static inline void DAC_Configure_DAC(const char* _target, uint16_t _mVolt, const char _mode)
+      static inline void DAC_Configure_DAC(const uint8_t _target, uint16_t _mVolt, const uint8_t _mode)
       {
         dac_structure_t *channel = DAC_Find_Target(_target);
 
@@ -147,7 +145,7 @@
       /** 
        *  For the selected DAC chip, read the _target channel voltage 
        */
-      static inline uint16_t DAC_Read_Voltage(const char* _target)
+      static inline uint16_t DAC_Read_Voltage(const uint8_t _target)
       {
         dac_structure_t *channel = DAC_Find_Target(_target);
 

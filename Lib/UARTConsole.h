@@ -13,6 +13,7 @@
 #include "TC.h"
 #include "Demos.h"
 #include "ASCII.h"
+#include "CommandMap.h"
 
 #define PROMPT "ICSRL>\0"
 #define HEADER "<< TC Terminal >>\r\n"
@@ -139,216 +140,188 @@ static inline void UARTConsole_ProcessCommand(void)
   }
 
   /* Power Management (PM) */
-  if(strcmp("PM", parameter[0]) == 0){
-    if(strcmp("list", parameter[1]) == 0){
+  if(*parameter[0] == CM_PM){
+    if(*parameter[1] == CM_PM_LIST){
       regulator_structure_t *regulator = regulators_map;
       while(regulator->name) {
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, " - %10s(%3s): %4d mV\r\n", regulator->name, PM_Is_Enabled(regulator->name)?"on":"off", PM_Read_Voltage(regulator->name));
+        sprintf(buffer, "%d(%d): %4d mV\r\n", regulator->name, PM_Is_Enabled(regulator->name), PM_Read_Voltage(regulator->name));
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         regulator++;
       }
     }
-    else if(strcmp("clear", parameter[1]) == 0)
+    else if(*parameter[1] == CM_PM_CLEAR)
       PM_ClearIRQ();
-    else if(strcmp("status", parameter[1]) == 0){
-        memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Status: 0x%02X\r\n",  PM_ReadIRQ());
+    else if(*parameter[1] == CM_PM_STATUS){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "%d\r\n",  PM_ReadIRQ());
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
-    else if(strcmp("save", parameter[1]) == 0)
+    else if(*parameter[1] == CM_PM_SAVE)
       PM_Save();
-    else if(strcmp("load", parameter[1]) == 0)
+    else if(*parameter[1] == CM_PM_LOAD)
       PM_Load();
-    else if(strcmp("allon", parameter[1]) == 0)
+    else if(*parameter[1] == CM_PM_ALLON)
       PM_EnableAll();
-    else if(strcmp("alloff", parameter[1]) == 0)
+    else if(*parameter[1] == CM_PM_ALLOFF)
       PM_DisableAll();
-    else if(strcmp("reset", parameter[1]) == 0)
+    else if(*parameter[1] == CM_PM_RESET)
       PM_Reset();
-    else if(strcmp("on", parameter[2]) == 0)
-      PM_Enable(parameter[1]);
-    else if(strcmp("off", parameter[2]) == 0)
-      PM_Disable(parameter[1]);
-    else if(parameter[2][0] == '+' && parameter[2][1] == '+')
-      PM_Adjust(parameter[1], 0, PM_ADJUST_MODE_INCREMENT);
-    else if(parameter[2][0] == '-' && parameter[2][1] == '-')
-      PM_Adjust(parameter[1], 0, PM_ADJUST_MODE_DECREMENT);
-    else if(parameter[2][0] == '+')
-      PM_Adjust(parameter[1],atof(parameter[2]+1), PM_ADJUST_MODE_PLUS);
-    else if(parameter[2][0] == '-')
-      PM_Adjust(parameter[1],atof(parameter[2]+1), PM_ADJUST_MODE_MINUS);
-    else if(parameter[2] != NULL)
-      PM_Adjust(parameter[1],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
-    else{
+    else if(*parameter[1] == CM_PM_ENABLE)
+      PM_Enable(*parameter[2]);
+    else if(*parameter[1] == CM_PM_DISABLE)
+      PM_Disable(*parameter[2]);
+    else if(*parameter[1] == CM_PM_INCR)
+      PM_Adjust(*parameter[2], 0, PM_ADJUST_MODE_INCREMENT);
+    else if(*parameter[1] == CM_PM_DECR)
+      PM_Adjust(*parameter[2], 0, PM_ADJUST_MODE_DECREMENT);
+    else if(*parameter[1] == CM_PM_PLUS)
+      PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_PLUS);
+    else if(*parameter[1] == CM_PM_MINUS)
+      PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_MINUS);
+    else if(*parameter[1] == CM_PM_SET)
+      PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
+    else if(*parameter[1] == CM_PM_GET){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, " - %10s(%3s): %4d mV\r\n", parameter[1], PM_Is_Enabled(parameter[1])?"on":"off", PM_Read_Voltage(parameter[1]));
+      sprintf(buffer, "%d %d\r\n", PM_Is_Enabled(*parameter[2]), PM_Read_Voltage(*parameter[2]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
 
   /* Digital Analog Converter (DAC) */
-  else if(strcmp("DAC", parameter[0]) == 0){
-    if(strcmp("list", parameter[1]) == 0){
+  else if(*parameter[0] == CM_DAC){
+    if(*parameter[1] == CM_DAC_LIST){
       dac_structure_t *channel = dacs_map;
       while(channel->name) {
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, " - %10s: %4d mV\r\n", channel->name, DAC_Read_Voltage(channel->name));
+        sprintf(buffer, "%d: %4d mV\r\n", channel->name, DAC_Read_Voltage(channel->name));
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         channel++;
       }
     }
-    else if(parameter[2][0] == '+' && parameter[2][1] == '+')
-      DAC_Configure_DAC(parameter[1], 0, DAC_ADJUST_MODE_INCREMENT); 
-    else if(parameter[2][0] == '-' && parameter[2][1] == '-')
-      DAC_Configure_DAC(parameter[1], 0, DAC_ADJUST_MODE_DECREMENT); 
-    else if(parameter[2][0] == '+')
-      DAC_Configure_DAC(parameter[1], atoi(parameter[2]+1), DAC_ADJUST_MODE_PLUS); 
-    else if(parameter[2][0] == '-')
-      DAC_Configure_DAC(parameter[1], atoi(parameter[2]+1), DAC_ADJUST_MODE_MINUS); 
-    else if(parameter[2] != NULL)
-      DAC_Configure_DAC(parameter[1], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
-    else{
+    else if(*parameter[1] == CM_DAC_INCR)
+      DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_INCREMENT); 
+    else if(*parameter[1] == CM_DAC_DECR)
+      DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_DECREMENT); 
+    else if(*parameter[1] == CM_DAC_PLUS)
+      DAC_Configure_DAC(*parameter[3], atoi(parameter[2]), DAC_ADJUST_MODE_PLUS); 
+    else if(*parameter[1] == CM_DAC_MINUS)
+      DAC_Configure_DAC(*parameter[3], atoi(parameter[2]), DAC_ADJUST_MODE_MINUS); 
+    else if(*parameter[1] == CM_DAC_SET)
+      DAC_Configure_DAC(*parameter[3], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
+    else if(*parameter[1] == CM_DAC_GET){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, " - %10s: %4d mV\r\n", parameter[1], DAC_Read_Voltage(parameter[1]));
+      sprintf(buffer, "%d\r\n", DAC_Read_Voltage(*parameter[2]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
 
   /* Data Flash (DF) */
-  else if(strcmp("DF", parameter[0]) == 0){
+  else if(*parameter[0] == CM_DF){
     Dataflash_SelectChip(DATAFLASH_CHIP1);
-    if(strcmp("status", parameter[1]) == 0){
+    if(*parameter[1] == CM_DF_STATUS){
       Dataflash_SendByte(DF_CMD_GETSTATUS);
+      uint8_t status[2];
+      status[0] = (uint8_t)Dataflash_ReceiveByte();
+      status[1] = (uint8_t)Dataflash_ReceiveByte();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Byte 1: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Byte 2: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
+      sprintf(buffer, "%d %d\r\n", status[0], status[1]);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
-    else if(strcmp("id", parameter[1]) == 0){
+    else if(*parameter[1] == CM_DF_ID){
       Dataflash_SendByte(DF_CMD_READMANUFACTURERDEVICEINFO);
+      uint8_t id[3];
+      id[0] = (uint8_t)Dataflash_ReceiveByte();
+      id[1] = (uint8_t)Dataflash_ReceiveByte();
+      id[2] = (uint8_t)Dataflash_ReceiveByte();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Manufacturer ID : 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Device ID Byte 1: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Device ID Byte 2: 0x%02X\r\n",  (uint8_t)Dataflash_ReceiveByte());
+      sprintf(buffer, "%d %d %d\r\n", id[0], id[1], id[2]);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
-    else if(strcmp("reset", parameter[1]) == 0)
+    else if(*parameter[1] == CM_DF_RESET)
       Dataflash_Reset();
-    //else if(strcmp("read", parameter[1]) == 0){
-    //  uint32_t address;
-    //  uint32_t count;
-    //  if(strcmp("chip", parameter[2]) == 0){
-    //    address = 0;
-    //    count   = (uint32_t)DATAFLASH_SIZE;
-    //  }
-    //  else if(strcmp("sector", parameter[2]) == 0){
-    //    if(strcmp("0a", parameter[3]) == 0){
-    //      address = 0*(uint32_t)DATAFLASH_BLOCK_SIZE;
-    //      count   = 1*(uint32_t)DATAFLASH_BLOCK_SIZE;
-    //    }
-    //    else if(strcmp("0b", parameter[3]) == 0){
-    //      address =  1*(uint32_t)DATAFLASH_BLOCK_SIZE;
-    //      count   = 15*(uint32_t)DATAFLASH_BLOCK_SIZE;
-    //    }
-    //    else{
-    //      address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_SECTOR_SIZE;
-    //      count   =                              (uint32_t)DATAFLASH_SECTOR_SIZE;
-    //    }
-    //  }
-    //  else if(strcmp("block", parameter[2]) == 0){
-    //    address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_BLOCK_SIZE;
-    //    count   =                              (uint32_t)DATAFLASH_BLOCK_SIZE;
-    //  }
-    //  else if(strcmp("page", parameter[2]) == 0){
-    //    address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_PAGE_SIZE;
-    //    count   =                              (uint32_t)DATAFLASH_PAGE_SIZE;
-    //  }
-    //  else{ // Reading only 1 Byte
-    //    // Parse the address
-    //    if(strchr(parameter[2], '.')){ // [Page].[Offset] format
-    //      parameter[2] = strtok(parameter[2], ". ");
-    //      address  = (uint32_t)atoi(parameter[2])*(uint32_t)DATAFLASH_PAGE_SIZE;
-    //      parameter[2] = strtok(NULL, ". ");
-    //      address += (uint32_t)atoi(parameter[2]);
-    //    }
-    //    else if(parameter[2][0] == '0' && parameter[2][1] == 'x') // Hex format
-    //      address = strtol(parameter[2]+2, NULL, 16);
-    //    else // Integer format
-    //      address = (uint32_t)atoi(parameter[2]);
-    //    count = 1;
-    //  }
+    else if(*parameter[1] == CM_DF_READ){
+      uint32_t address;
+      uint32_t count;
+      if(*parameter[2] == CM_DF_RWE_CHIP){
+        address = 0;
+        count   = (uint32_t)DATAFLASH_SIZE;
+      }
+      else if(*parameter[2] == CM_DF_RWE_SECTOR){
+        if(strcmp("0a", parameter[3]) == 0){
+          address = 0*(uint32_t)DATAFLASH_BLOCK_SIZE;
+          count   = 1*(uint32_t)DATAFLASH_BLOCK_SIZE;
+        }
+        else if(strcmp("0b", parameter[3]) == 0){
+          address =  1*(uint32_t)DATAFLASH_BLOCK_SIZE;
+          count   = 15*(uint32_t)DATAFLASH_BLOCK_SIZE;
+        }
+        else{
+          address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_SECTOR_SIZE;
+          count   =                              (uint32_t)DATAFLASH_SECTOR_SIZE;
+        }
+      }
+      else if(*parameter[2] == CM_DF_RWE_BLOCK){
+        address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_BLOCK_SIZE;
+        count   =                              (uint32_t)DATAFLASH_BLOCK_SIZE;
+      }
+      else if(*parameter[2] == CM_DF_RWE_PAGE){
+        address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_PAGE_SIZE;
+        count   =                              (uint32_t)DATAFLASH_PAGE_SIZE;
+      }
+      else{ // Reading only 1 Byte
+        address = (uint32_t)atoi(parameter[2]);
+        count = 1;
+      }
 
-    //  // Start reading and printing
-    //  Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, address);
-    //  for(uint32_t i = 0; i<count;i++){
-    //    if(i%16 == 0){
-    //      memset(buffer, 0, sizeof(buffer));
-    //      sprintf(buffer, "DF[0x%04lX]: 0x", i + address);
-    //      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //    }
-    //    memset(buffer, 0, sizeof(buffer));
-    //    sprintf(buffer, "%02X", (uint8_t)Dataflash_ReceiveByte());
-    //    CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //    if(i%16 == 15 || i == count - 1){
-    //      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
-    //      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
-    //    }
-    //  }
-    //}
-    //else if(strcmp("write", parameter[1]) == 0){
-    //  // Parse the address
-    //  uint32_t address;
-    //  if(strchr(parameter[2], '.')){
-    //    parameter[2] = strtok(parameter[2], ". ");
-    //    address  = (uint32_t)atoi(parameter[2])*(uint32_t)DATAFLASH_PAGE_SIZE;
-    //    parameter[2] = strtok(NULL, ". ");
-    //    address += (uint32_t)atoi(parameter[2]);
-    //  }
-    //  else if(parameter[2][0] == '0' && parameter[2][1] == 'x')
-    //    address = strtol(parameter[2]+2, NULL, 16);
-    //  else
-    //    address = (uint32_t)atoi(parameter[2]);
+      // Start reading and printing
+      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, address);
+      for(uint32_t i = 0; i<count;i++){
+        if(i%16 == 0){
+          memset(buffer, 0, sizeof(buffer));
+          sprintf(buffer, "DF[0x%04lX]: 0x", i + address);
+          CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        }
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "%02X", (uint8_t)Dataflash_ReceiveByte());
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        if(i%16 == 15 || i == count - 1){
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
+        }
+      }
+    }
+    else if(*parameter[1] == CM_DF_WRITE){
+      // Parse the address/value
+      uint32_t address = (uint32_t)atoi(parameter[2]);
+      uint8_t  value   = (uint8_t)atoi(parameter[3]);
 
-    //  // Parse the value
-    //  uint8_t value;
-    //  if(parameter[3][0] == '0' && parameter[3][1] == 'x')
-    //    value = strtol(parameter[3]+2, NULL, 16);
-    //  else
-    //    value = (uint32_t)atoi(parameter[3]);
-
-    //  Dataflash_Configure_Write_Address(DF_CMD_RMWTHROUGHBUFF1, address);
-    //  Dataflash_SendByte(value);
-    //}
-    //else if(strcmp("erase", parameter[1]) == 0){
-    //  uint32_t address;
-    //  if(strcmp("chip", parameter[2]) == 0)
-    //    Dataflash_Erase(DATAFLASH_LEVEL_CHIP, 0);
-    //  else if(strcmp("sector", parameter[2]) == 0){
-    //    if(strcmp("0a", parameter[3]) == 0)
-    //      address =                             0 << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
-    //    else if(strcmp("0b", parameter[3]) == 0)
-    //      address =                             1 << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
-    //    else
-    //      address =  (uint32_t)atoi(parameter[3]) << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_SECTOR_ADDR_WIDTH);
-    //    Dataflash_Erase(DATAFLASH_LEVEL_SECTOR, address);
-    //  }
-    //  else if(strcmp("block", parameter[2]) == 0){
-    //    address = (uint32_t)atoi(parameter[3]) << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
-    //    Dataflash_Erase(DATAFLASH_LEVEL_BLOCK, address);
-    //  }
-    //  else if(strcmp("page", parameter[2]) == 0){
-    //    address = (uint32_t)atoi(parameter[3]) << (uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH;
-    //    Dataflash_Erase(DATAFLASH_LEVEL_PAGE, address);
-    //  }
-    //}
-    //else if(strcmp("protect", parameter[1]) == 0){
+      Dataflash_Configure_Write_Address(DF_CMD_RMWTHROUGHBUFF1, address);
+      Dataflash_SendByte(value);
+    }
+    else if(*parameter[1] == CM_DF_ERASE){
+      uint32_t address;
+      if(*parameter[2] == CM_DF_RWE_CHIP)
+        Dataflash_Erase(DATAFLASH_LEVEL_CHIP, 0);
+      else if(*parameter[2] == CM_DF_RWE_SECTOR){
+        if(strcmp("0a", parameter[3]) == 0)
+          address =                             0 << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
+        else if(strcmp("0b", parameter[3]) == 0)
+          address =                             1 << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
+        else
+          address =  (uint32_t)atoi(parameter[3]) << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_SECTOR_ADDR_WIDTH);
+        Dataflash_Erase(DATAFLASH_LEVEL_SECTOR, address);
+      }
+      else if(*parameter[2] == CM_DF_RWE_BLOCK){
+        address = (uint32_t)atoi(parameter[3]) << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
+        Dataflash_Erase(DATAFLASH_LEVEL_BLOCK, address);
+      }
+      else if(*parameter[2] == CM_DF_RWE_PAGE){
+        address = (uint32_t)atoi(parameter[3]) << (uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH;
+        Dataflash_Erase(DATAFLASH_LEVEL_PAGE, address);
+      }
+    }
+    //else if(*parameter[1] == CM_DF_PROTECT){
     //  if(strcmp("on", parameter[2]) == 0)
     //    Dataflash_Enable_Sector_Protection();
     //  else if(strcmp("off", parameter[2]) == 0)
@@ -423,65 +396,56 @@ static inline void UARTConsole_ProcessCommand(void)
     //    Dataflash_Update_Sector_Protection_Registor();
     //  }
     //}
-    else if(strcmp("blankcheck", parameter[1]) == 0){
-      uint32_t firstNonBlank = Dataflash_BlankCheck();
-      if(firstNonBlank == (uint32_t)DATAFLASH_SIZE){
-        memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "Dataflash blank\r\n");
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      }
-      else{
-        memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "0x%02lX not blank\r\n", firstNonBlank);
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      }
+    else if(*parameter[1] == CM_DF_BLANKCHECK){
+      int32_t firstNonBlank = Dataflash_BlankCheck();
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "%ld\r\n", firstNonBlank);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     Dataflash_DeselectChip();
   }
 
   /* EEPROM */
-  //else if(strcmp("EEPROM", parameter[0]) == 0){
-  //  if(strcmp("read", parameter[1]) == 0){
-  //    uint16_t address = (uint8_t)atoi(parameter[2]);
-  //    memset(buffer, 0, sizeof(buffer));
-  //    sprintf(buffer, "EEPROM[%u]: 0x%02X\r\n", address, eeprom_read_byte((uint8_t*)address));
-  //    CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-  //  }
-  //  else if(strcmp("write", parameter[1]) == 0){
-  //    uint16_t address = (uint8_t)atoi(parameter[2]);
-  //    uint8_t value;
-  //    if(parameter[3][0] == '0' && parameter[3][1] == 'x')
-  //      value = strtol(parameter[3]+2, NULL, 16);
-  //    else
-  //      value = (uint32_t)atoi(parameter[3]);
-  //    eeprom_write_byte((uint8_t*)address, value);
-  //    eeprom_busy_wait();
-  //  }
-  //}
+  else if(*parameter[0] == CM_EEPROM){
+    if(*parameter[1] == CM_EEPROM_READ){
+      uint16_t address = (uint8_t)atoi(parameter[2]);
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "%d\r\n", eeprom_read_byte((uint8_t*)address));
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+    }
+    else if(*parameter[1] == CM_EEPROM_WRITE){
+      uint16_t address = (uint8_t)atoi(parameter[2]);
+      uint8_t value = (uint32_t)atoi(parameter[3]);
+      eeprom_write_byte((uint8_t*)address, value);
+      eeprom_busy_wait();
+    }
+  }
 
   /* LED */
-  //else if(strcmp("LED", parameter[0]) == 0){
-  //  if(strcmp("TX", parameter[1]) == 0){
-  //    if(strcmp("on", parameter[2]) == 0)
-  //      LEDs_TurnOnLEDs(LEDMASK_TX);
-  //    else if(strcmp("off", parameter[2]) == 0)
-  //      LEDs_TurnOffLEDs(LEDMASK_TX);
-  //    else
-  //      LEDs_ToggleLEDs(LEDMASK_TX);
-  //  }
-  //  else if(strcmp("RX", parameter[1]) == 0){
-  //    if(strcmp("on", parameter[2]) == 0)
-  //      LEDs_TurnOnLEDs(LEDMASK_RX);
-  //    else if(strcmp("off", parameter[2]) == 0)
-  //      LEDs_TurnOffLEDs(LEDMASK_RX);
-  //    else
-  //      LEDs_ToggleLEDs(LEDMASK_RX);
-  //  }
-  //}
+  else if(*parameter[0] == CM_LED){
+    if(*parameter[1] == CM_LED_ENABLE){
+      if(strcmp("TX", parameter[2]) == 0)
+        LEDs_TurnOnLEDs(LEDMASK_TX);
+      else
+        LEDs_TurnOnLEDs(LEDMASK_RX);
+    }
+    else if(*parameter[1] == CM_LED_DISABLE){
+      if(strcmp("TX", parameter[2]) == 0)
+        LEDs_TurnOffLEDs(LEDMASK_TX);
+      else
+        LEDs_TurnOffLEDs(LEDMASK_RX);
+    }
+    else if(*parameter[1] == CM_LED_TOGGLE){
+      if(strcmp("TX", parameter[2]) == 0)
+        LEDs_ToggleLEDs(LEDMASK_TX);
+      else
+        LEDs_ToggleLEDs(LEDMASK_RX);
+    }
+  }
 
   /* RRAM Testchip (TC) */
-  else if(strcmp("TC", parameter[0]) == 0){
-    if(strcmp("connect", parameter[1]) == 0){
+  else if(*parameter[0] == CM_TC){
+    if(*parameter[1] == CM_TC_CONNECT){
       // Enable SW Mode
       SW_LineReset();
       SW_JTAGToSW();
@@ -490,7 +454,7 @@ static inline void UARTConsole_ProcessCommand(void)
       // Connect to the device
       uint32_t id = SW_Connect();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Device ID: 0x%08lX\r\n", id);
+      sprintf(buffer, "0x%08lX\r\n", id);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       
       // Power up the DAP
@@ -499,17 +463,17 @@ static inline void UARTConsole_ProcessCommand(void)
       // Halt the core
       SW_HaltCore();
     }
-    else if(strcmp("reset", parameter[1]) == 0){
+    else if(*parameter[1] == CM_TC_RESET){
       TC_Reset();
     }
-    else if(strcmp("read", parameter[1]) == 0){
+    else if(*parameter[1] == CM_TC_READ){
       uint32_t address = atoi(parameter[2]);
       uint32_t value = SW_ReadMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK);
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[%lu] = 0x%08lX\r\n", address, value);
+      sprintf(buffer, "%ld\r\n", value);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
-    else if(strcmp("write", parameter[1]) == 0){
+    else if(*parameter[1] == CM_TC_WRITE){
       uint32_t address = atoi(parameter[2]);
       uint32_t value = atoi(parameter[3]);
       SW_WriteMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK, value);
@@ -517,8 +481,8 @@ static inline void UARTConsole_ProcessCommand(void)
   }
 
   /* Demos */
-  else if(strcmp("DEMO", parameter[0]) == 0){
-    if(strcmp("list", parameter[1]) == 0){
+  else if(*parameter[0] == CM_DEMO){
+    if(*parameter[1] == CM_DEMO_LIST){
       for(uint8_t i=0;i<sizeof(demos_map)/sizeof(demos_structure_t);i++){
         char demo_name[24];
         memset(demo_name, 0, sizeof(demo_name));
@@ -532,9 +496,9 @@ static inline void UARTConsole_ProcessCommand(void)
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
-    else if(strcmp("load", parameter[1]) == 0){
+    else if(*parameter[1] == CM_DEMO_LOAD){
       // Check if 3.3V, VDD, AVDD_SRAM are on
-      if(!(PM_Is_Enabled("3V3") && PM_Is_Enabled("VDD") && PM_Is_Enabled("AVDD_SRAM"))){
+      if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
         memset(buffer, 0, sizeof(buffer));
         sprintf(buffer, "3.3V, VDD, and AVDD_SRAM are not all enabled, skipping ...\r\n");
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
@@ -599,10 +563,10 @@ static inline void UARTConsole_ProcessCommand(void)
 
       UARTConsole_PrintNewLine();
     }
-    else if(strcmp("run", parameter[1]) == 0){
+    else if(*parameter[1] == CM_DEMO_RUN){
       TC_Reset();
     }
-    else if(strcmp("analyze", parameter[1]) == 0){
+    else if(*parameter[1] == CM_DEMO_ANALYZE){
       for(uint8_t i=0;i<sizeof(demos_map)/sizeof(demos_structure_t);i++){
 
         // Retrieve the demo information
@@ -642,8 +606,7 @@ static inline void UARTConsole_ProcessCommand(void)
   }
 
   /* Forwarding other commands to the testchip */
-  else if((strcmp("RRAM", parameter[0]) == 0) ||
-          (strcmp("VECTOR", parameter[0]) == 0)) {
+  else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR){
     for(uint8_t i=0;i<5;i++){
       if(parameter[i]){
         Serial_TxString(parameter[i]);

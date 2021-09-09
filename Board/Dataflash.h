@@ -278,13 +278,17 @@
       /** 
        *  
        */
-      static inline uint32_t Dataflash_BlankCheck(void){
-        uint32_t i;
+      static inline int32_t Dataflash_BlankCheck(void){
+        int32_t i;
         Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, 0);
-        for(i = 0; i<(uint32_t)DATAFLASH_SIZE;i++)
+        for(i = 0; i<(int32_t)DATAFLASH_SIZE;i++)
           if(Dataflash_ReceiveByte() != 255)
             break;
-        return i;
+
+        if(i == (int32_t)DATAFLASH_SIZE)
+          return -1;
+        else
+          return i;
       }
 
       /*
