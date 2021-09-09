@@ -58,6 +58,14 @@ static inline void UARTConsole_PrintPrompt(void)
 /*
  * 
  */
+static inline void UARTConsole_PrintCommand(void)
+{
+  CDC_Device_SendString(&VirtualSerial_CDC_Interface, PROMPT, strlen(PROMPT));
+}
+
+/*
+ * 
+ */
 static inline void UARTConsole_PrintNewLine(void)
 {
   CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
@@ -92,13 +100,25 @@ static inline void UARTConsole_MoveForward(uint8_t _num){
  * 
  */
 static inline void UARTConsole_Backspace(uint8_t _num){
-  for(uint8_t i=0;count > 0 && i<_num;i++){
+  // Edge case
+  if(_num > count)
+    _num = count;
+
+  // Move backward _num position
+  for(uint8_t i=0;i<_num;i++)
     CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
+  // Print the rest of command
+  for(uint8_t i=position;i<count;i++)
+    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, command[i]);
+  // Print blanks
+  for(uint8_t i=0;i<_num;i++)
     CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
+  // Move backward _num position
+  for(uint8_t i=0;i<count - position + _num;i++)
     CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
-    count--;
-    position--;
-  }
+  // Recompute count and position
+  count -= _num;
+  position -= _num;
 }
 
 /*
