@@ -6,7 +6,7 @@
     typedef struct {
       const char    name[24];      // Demo name
       const uint8_t sector_number; // Location in side the dataflash
-      const uint8_t size;          // Demo Size (KB)
+            uint8_t size;          // Demo Size (KB)
     } demos_structure_t;
 
     /* Regulator Map */
