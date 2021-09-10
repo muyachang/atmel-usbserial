@@ -67,25 +67,25 @@ static inline void UARTConsole_PrintNewLine(void)
 /*
  * 
  */
-static inline void UARTConsole_MoveBackward(uint8_t _num){
-  for(uint8_t i=0;position > 0 && i<_num;i++){
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ESC);
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x5B);
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x44);
-    position--;
-  }
+static inline void UARTConsole_MoveBackward(void){
+  if(position == 0)
+    return;
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ESC);
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x5B);
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x44);
+  position--;
 }
 
 /*
  * 
  */
-static inline void UARTConsole_MoveForward(uint8_t _num){
-  for(uint8_t i=0;position < count && i<_num;i++){
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ESC);
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x5B);
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x43);
-    position++;
-  }
+static inline void UARTConsole_MoveForward(void){
+  if(position == count)
+    return;
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ESC);
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x5B);
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x43);
+  position++;
 }
 
 /*
@@ -123,7 +123,7 @@ static inline void UARTConsole_CommandDelete(bool quiet){
   if(position == count)
     return;
 
-  UARTConsole_MoveForward(1);
+  UARTConsole_MoveForward();
   UARTConsole_CommandBackspace(quiet);
 }
 
@@ -648,7 +648,12 @@ static inline void UARTConsole_ProcessCommand(void)
   /* Unknown command, loop it back to the CDC */
   else if(count !=0){ 
     CDC_Device_SendString(&VirtualSerial_CDC_Interface, "Unknown Command: ", 17);
-    CDC_Device_SendString(&VirtualSerial_CDC_Interface, command, count);
+    for(uint8_t i=0;i<5;i++){
+      if(parameter[i]){
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, parameter[i], strlen(parameter[i]));
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
+      }
+    }
     UARTConsole_PrintNewLine();
   }
   
@@ -682,10 +687,10 @@ static inline void UARTConsole_InsertChar(uint8_t _char, bool quiet)
       else if(_char2 == 0x42){ // Down 
       }
       else if(_char2 == 0x43){ // Right
-        UARTConsole_MoveForward(1);
+        UARTConsole_MoveForward();
       }
       else if(_char2 == 0x44){ // Left
-        UARTConsole_MoveBackward(1);
+        UARTConsole_MoveBackward();
       }
     }
   }
