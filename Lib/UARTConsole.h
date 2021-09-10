@@ -272,11 +272,11 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(*parameter[1] == CM_DF_READ){
       uint32_t address;
       uint32_t count;
-      if(*parameter[2] == CM_DF_RWE_CHIP){
+      if(*parameter[2] == DATAFLASH_LEVEL_CHIP){
         address = 0;
         count   = (uint32_t)DATAFLASH_SIZE;
       }
-      else if(*parameter[2] == CM_DF_RWE_SECTOR){
+      else if(*parameter[2] == DATAFLASH_LEVEL_SECTOR){
         if(strcmp("0a", parameter[3]) == 0){
           address = 0*(uint32_t)DATAFLASH_BLOCK_SIZE;
           count   = 1*(uint32_t)DATAFLASH_BLOCK_SIZE;
@@ -290,11 +290,11 @@ static inline void UARTConsole_ProcessCommand(void)
           count   =                              (uint32_t)DATAFLASH_SECTOR_SIZE;
         }
       }
-      else if(*parameter[2] == CM_DF_RWE_BLOCK){
+      else if(*parameter[2] == DATAFLASH_LEVEL_BLOCK){
         address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_BLOCK_SIZE;
         count   =                              (uint32_t)DATAFLASH_BLOCK_SIZE;
       }
-      else if(*parameter[2] == CM_DF_RWE_PAGE){
+      else if(*parameter[2] == DATAFLASH_LEVEL_PAGE){
         address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_PAGE_SIZE;
         count   =                              (uint32_t)DATAFLASH_PAGE_SIZE;
       }
@@ -330,9 +330,9 @@ static inline void UARTConsole_ProcessCommand(void)
     }
     else if(*parameter[1] == CM_DF_ERASE){
       uint32_t address;
-      if(*parameter[2] == CM_DF_RWE_CHIP)
+      if(*parameter[2] == DATAFLASH_LEVEL_CHIP)
         Dataflash_Erase(DATAFLASH_LEVEL_CHIP, 0);
-      else if(*parameter[2] == CM_DF_RWE_SECTOR){
+      else if(*parameter[2] == DATAFLASH_LEVEL_SECTOR){
         if(strcmp("0a", parameter[3]) == 0)
           address =                             0 << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
         else if(strcmp("0b", parameter[3]) == 0)
@@ -341,90 +341,88 @@ static inline void UARTConsole_ProcessCommand(void)
           address =  (uint32_t)atoi(parameter[3]) << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_SECTOR_ADDR_WIDTH);
         Dataflash_Erase(DATAFLASH_LEVEL_SECTOR, address);
       }
-      else if(*parameter[2] == CM_DF_RWE_BLOCK){
+      else if(*parameter[2] == DATAFLASH_LEVEL_BLOCK){
         address = (uint32_t)atoi(parameter[3]) << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_BLOCK_ADDR_WIDTH);
         Dataflash_Erase(DATAFLASH_LEVEL_BLOCK, address);
       }
-      else if(*parameter[2] == CM_DF_RWE_PAGE){
+      else if(*parameter[2] == DATAFLASH_LEVEL_PAGE){
         address = (uint32_t)atoi(parameter[3]) << (uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH;
         Dataflash_Erase(DATAFLASH_LEVEL_PAGE, address);
       }
     }
-    //else if(*parameter[1] == CM_DF_PROTECT){
-    //  if(strcmp("on", parameter[2]) == 0)
-    //    Dataflash_Enable_Sector_Protection();
-    //  else if(strcmp("off", parameter[2]) == 0)
-    //    Dataflash_Disable_Sector_Protection();
-    //  else if(strcmp("status", parameter[2]) == 0){
-    //    // Print whether protection is enabled
-    //    Dataflash_SendByte(DF_CMD_GETSTATUS);
-    //    memset(buffer, 0, sizeof(buffer));
-    //    if(Dataflash_ReceiveByte() & DF_STATUSREG_BYTE1_SECTORPROTECTION_ON)
-    //      sprintf(buffer, "Sector Protection On\r\n");
-    //    else
-    //      sprintf(buffer, "Sector Protection Off\r\n");
-    //    CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //    Dataflash_ToggleSelectedChipCS();
+    else if(*parameter[1] == CM_DF_PROTECT){
+      if(*parameter[2] == CM_DF_PROTECT_ENABLE)
+        Dataflash_Enable_Sector_Protection();
+      else if(*parameter[2] == CM_DF_PROTECT_DISABLE)
+        Dataflash_Disable_Sector_Protection();
+      else if(*parameter[2] == CM_DF_PROTECT_STATUS){
+        // Print whether protection is enabled
+        Dataflash_SendByte(DF_CMD_GETSTATUS);
+        memset(buffer, 0, sizeof(buffer));
+        if(Dataflash_ReceiveByte() & DF_STATUSREG_BYTE1_SECTORPROTECTION_ON)
+          sprintf(buffer, "Sector Protection On\r\n");
+        else
+          sprintf(buffer, "Sector Protection Off\r\n");
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        Dataflash_ToggleSelectedChipCS();
 
-    //    // Print protection register for each sector
-    //    for(uint8_t i=0;i<sizeof(DF_CMD_READSECTORPROTECTIONREG)/sizeof(DF_CMD_READSECTORPROTECTIONREG[0]);i++)
-    //      Dataflash_SendByte(DF_CMD_READSECTORPROTECTIONREG[i]);
-    //    for(uint16_t i=0;i<DATAFLASH_SECTORS;i++){
-    //      memset(buffer, 0, sizeof(buffer));
-    //      sprintf(buffer, "Sector[%u]: %02X\r\n", i, (uint8_t)Dataflash_ReceiveByte());
-    //      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    //    }
-    //  }
-    //  else{
-    //    uint8_t  value;
-    //    if(strcmp("all", parameter[2]) == 0){
-    //      for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
-    //        eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_PROTECTED);
-    //        eeprom_busy_wait();
-    //      }
-    //    }
-    //    else if(strcmp("none", parameter[2]) == 0){
-    //      for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
-    //        eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_UNPROTECTED);
-    //        eeprom_busy_wait();
-    //      }
-    //    }
-    //    else if(strcmp("0a", parameter[2]+1) == 0){
-    //      value = eeprom_read_byte(&DF_Sector_Protection[0]);
-    //      if(parameter[2][0] == '+')
-    //        value |= DF_SECTORPROTECTIONREG_0A_PROTECTED;
-    //      if(parameter[2][0] == '-')
-    //        value &= ~DF_SECTORPROTECTIONREG_0A_PROTECTED;
-    //      eeprom_write_byte(&DF_Sector_Protection[0], value);
-    //      eeprom_busy_wait();
-    //    }
-    //    else if(strcmp("0b", parameter[2]+1) == 0){
-    //      value = eeprom_read_byte(&DF_Sector_Protection[0]);
-    //      if(parameter[2][0] == '+')
-    //        value |= DF_SECTORPROTECTIONREG_0B_PROTECTED;
-    //      else if(parameter[2][0] == '-')
-    //        value &= ~DF_SECTORPROTECTIONREG_0B_PROTECTED;
-    //      eeprom_write_byte(&DF_Sector_Protection[0], value);
-    //      eeprom_busy_wait();
-    //    }
-    //    else{
-    //      if(parameter[2][0] == '+')
-    //        value = DF_SECTORPROTECTIONREG_PROTECTED;
-    //      else if(parameter[2][0] == '-')
-    //        value = DF_SECTORPROTECTIONREG_UNPROTECTED;
-    //      else
-    //        value = DF_SECTORPROTECTIONREG_PROTECTED;
-    //      eeprom_write_byte(&DF_Sector_Protection[atoi(parameter[2]+1)], value);
-    //      eeprom_busy_wait();
-    //    }
+        // Print protection register for each sector
+        for(uint8_t i=0;i<sizeof(DF_CMD_READSECTORPROTECTIONREG)/sizeof(DF_CMD_READSECTORPROTECTIONREG[0]);i++)
+          Dataflash_SendByte(DF_CMD_READSECTORPROTECTIONREG[i]);
+        for(uint16_t i=0;i<DATAFLASH_SECTORS;i++){
+          memset(buffer, 0, sizeof(buffer));
+          sprintf(buffer, "Sector[%u]: %02X\r\n", i, (uint8_t)Dataflash_ReceiveByte());
+          CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        }
+      }
+      else{
+        if(*parameter[2] == CM_DF_PROTECT_ALL){
+          for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
+            eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_PROTECTED);
+            eeprom_busy_wait();
+          }
+        }
+        else if(*parameter[2] == CM_DF_PROTECT_NONE){
+          for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
+            eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_UNPROTECTED);
+            eeprom_busy_wait();
+          }
+        }
+        else if(strcmp("0a", parameter[3]) == 0){
+          uint8_t value = eeprom_read_byte(&DF_Sector_Protection[0]);
+          if(*parameter[2] == CM_DF_PROTECT_ADD)
+            value |= DF_SECTORPROTECTIONREG_0A_PROTECTED;
+          else if(*parameter[2] == CM_DF_PROTECT_REMOVE)
+            value &= ~DF_SECTORPROTECTIONREG_0A_PROTECTED;
+          eeprom_write_byte(&DF_Sector_Protection[0], value);
+          eeprom_busy_wait();
+        }
+        else if(strcmp("0b", parameter[3]) == 0){
+          uint8_t value = eeprom_read_byte(&DF_Sector_Protection[0]);
+          if(*parameter[2] == CM_DF_PROTECT_ADD)
+            value |= DF_SECTORPROTECTIONREG_0B_PROTECTED;
+          else if(*parameter[2] == CM_DF_PROTECT_REMOVE)
+            value &= ~DF_SECTORPROTECTIONREG_0B_PROTECTED;
+          eeprom_write_byte(&DF_Sector_Protection[0], value);
+          eeprom_busy_wait();
+        }
+        else{
+          uint8_t value = eeprom_read_byte(&DF_Sector_Protection[atoi(parameter[3])]);
+          if(*parameter[2] == CM_DF_PROTECT_ADD)
+            value = DF_SECTORPROTECTIONREG_PROTECTED;
+          else if(*parameter[2] == CM_DF_PROTECT_REMOVE)
+            value = DF_SECTORPROTECTIONREG_UNPROTECTED;
+          eeprom_write_byte(&DF_Sector_Protection[atoi(parameter[3])], value);
+          eeprom_busy_wait();
+        }
 
-    //    // Erase first
-    //    Dataflash_Erase_Sector_Protection_Registor();
+        // Erase first
+        Dataflash_Erase_Sector_Protection_Registor();
 
-    //    // Update Sector Protection Register
-    //    Dataflash_Update_Sector_Protection_Registor();
-    //  }
-    //}
+        // Update Sector Protection Register
+        Dataflash_Update_Sector_Protection_Registor();
+      }
+    }
     else if(*parameter[1] == CM_DF_BLANKCHECK){
       int32_t firstNonBlank = Dataflash_BlankCheck();
       memset(buffer, 0, sizeof(buffer));
