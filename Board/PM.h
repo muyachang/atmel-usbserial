@@ -437,38 +437,6 @@
   }
 
   /**
-   * Function for turning on all the voltages
-   */
-  static inline void PM_EnableAll(void)
-  {
-    /* Enable the low voltages first */
-    PM_Enable(PM_VDD);
-    PM_Enable(PM_AVDD_SRAM);
-    PM_Enable(PM_AVDD_RRAM);
-
-    /* Enable the high voltages second */
-    PM_Enable(PM_3V3);
-    PM_Enable(PM_AVDD_WL);
-    PM_Enable(PM_AVDD_WR);
-  }
-  
-  /**
-   * Function for turning off all the voltages
-   */
-  static inline void PM_DisableAll(void)
-  {
-    /* Disable the high voltages first */
-    PM_Disable(PM_3V3);
-    PM_Disable(PM_AVDD_WR);
-    PM_Disable(PM_AVDD_WL);
-
-    /* Disable the low voltages second */
-    PM_Disable(PM_VDD);
-    PM_Disable(PM_AVDD_SRAM);
-    PM_Disable(PM_AVDD_RRAM);
-  }
-
-  /**
    * Interrupt functions for WAKE pin
    */
   ISR(INT0_vect){
@@ -476,7 +444,6 @@
       /* Reset power voltages */
       PM_ClearIRQ();
       PM_Load();
-      //PM_EnableAll();
 
       /* Give some time for the voltage to settle */
       _delay_ms(500);

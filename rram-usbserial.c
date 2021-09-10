@@ -46,7 +46,7 @@ int main(void)
     /* Read bytes from the USB OUT endpoint into the UART Console */
     int16_t ReceivedByte = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
     if (!(ReceivedByte < 0))
-      UARTConsole_InsertChar(ReceivedByte, false);
+      UARTConsole_InsertChar(ReceivedByte);
     
     /* Check if the UART receive buffer flush timer has expired or the buffer is nearly full */
     RingBuff_Count_t BufferCount = RingBuffer_GetCount(&USARTtoUSB_Buffer);
@@ -162,8 +162,6 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t* const C
 
   // Data Terminal Ready (DTR)
   if (DataTerminalReady){
-    UARTConsole_PrintHeader();
-    UARTConsole_PrintPrompt();
   }
   else{
   }
@@ -180,20 +178,10 @@ ISR(USART1_RX_vect, ISR_BLOCK)
   /* USART -> Buffer */
   uint8_t temp = UDR1;
 
-  if(temp == 0x1B) // A command from Testchip about to come
+  if(temp == ESC) // A command from Testchip about to come
     TC_Commanding = !TC_Commanding;
   else if(TC_Commanding) // Receiving the command from the testchip
-    UARTConsole_InsertChar(temp, true);
-  else if(temp == EOT){ // Cortex M3 finished, clean up the buffer and print a prompt
-    RingBuff_Count_t BufferCount = RingBuffer_GetCount(&USARTtoUSB_Buffer);
-    while (BufferCount--)
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, RingBuffer_Remove(&USARTtoUSB_Buffer));
-    UARTConsole_PrintPrompt();
-  }
-  else if(temp == LF){ // Add a \r if we receive a \n
-    RingBuffer_Insert(&USARTtoUSB_Buffer, CR);  // \r
-    RingBuffer_Insert(&USARTtoUSB_Buffer, temp);
-  }
+    UARTConsole_InsertChar(temp);
   else
     RingBuffer_Insert(&USARTtoUSB_Buffer, temp);
 }

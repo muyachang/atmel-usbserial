@@ -39,10 +39,11 @@
       #define DATAFLASH_SECTOR_ADDR_WIDTH 6 // Bits
       #define DATAFLASH_OFFSET_ADDR_WIDTH 9 
 
-      #define DATAFLASH_LEVEL_CHIP   0
-      #define DATAFLASH_LEVEL_SECTOR 1  
-      #define DATAFLASH_LEVEL_BLOCK  2 
-      #define DATAFLASH_LEVEL_PAGE   3
+      #define DATAFLASH_LEVEL_CHIP   0x41
+      #define DATAFLASH_LEVEL_SECTOR 0x42  
+      #define DATAFLASH_LEVEL_BLOCK  0x43 
+      #define DATAFLASH_LEVEL_PAGE   0x44
+      #define DATAFLASH_LEVEL_BYTE   0x45
 
       __attribute__((section(".eeprom"))) uint8_t DF_Sector_Protection[64] = {0x00};
 

@@ -15,13 +15,9 @@
 #include "ASCII.h"
 #include "CommandMap.h"
 
-#define PROMPT "ICSRL>\0"
-#define HEADER "<< TC Terminal >>\r\n"
-
 /* char array for storing the command */
 char command[32];
 uint8_t count = 0;
-uint8_t position = 0;
 
 /* Temp char array for any purpose */
 char buffer[32];
@@ -42,112 +38,9 @@ void Serial_TxString(const char* StringPtr)
 /*
  * 
  */
-static inline void UARTConsole_PrintHeader(void)
-{
-  CDC_Device_SendString(&VirtualSerial_CDC_Interface, HEADER, strlen(HEADER));
-}
-
-/*
- * 
- */
-static inline void UARTConsole_PrintPrompt(void)
-{
-  CDC_Device_SendString(&VirtualSerial_CDC_Interface, PROMPT, strlen(PROMPT));
-}
-
-/*
- * 
- */
-static inline void UARTConsole_PrintNewLine(void)
-{
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
-}
-
-/*
- * 
- */
-static inline void UARTConsole_MoveBackward(void){
-  if(position == 0)
-    return;
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ESC);
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x5B);
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x44);
-  position--;
-}
-
-/*
- * 
- */
-static inline void UARTConsole_MoveForward(void){
-  if(position == count)
-    return;
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ESC);
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x5B);
-  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, 0x43);
-  position++;
-}
-
-/*
- * 
- */
-static inline void UARTConsole_CommandBackspace(bool quiet){
-  // Edge case
-  if(position == 0)
-    return;
-  // Move the rest of command one space to the left 
-  for(uint8_t i=position-1;i<count-1;i++)
-    command[i] = command[i+1];
-  // Recompute count and position
-  position -= 1;
-  count -= 1;
-  // Print if needed
-  if(!quiet){
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
-    for(uint8_t i=position;i<count;i++)
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, command[i]);
-    // Insert the space to cover the last char up
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
-  }
-  // Move backward _num position
-  for(uint8_t i=0;i<count - position;i++)
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
-}
-
-/*
- * 
- */
-static inline void UARTConsole_CommandDelete(bool quiet){
-  // Edge case
-  if(position == count)
-    return;
-
-  UARTConsole_MoveForward();
-  UARTConsole_CommandBackspace(quiet);
-}
-
-/*
- * 
- */
-static inline void UARTConsole_CommandInsert(uint8_t _char, bool quiet){
-  // Move the rest of command one space to the right
-  for(uint8_t i=count;i>=position+1;i--)
-    command[i] = command[i-1];
+static inline void UARTConsole_CommandInsert(uint8_t _char){
   // Insert the new _char
-  command[position] = _char;
-  // Recompute count and position
-  position += 1;
-  count += 1;
-  // Print if needed
-  if(!quiet){
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, _char);
-    for(uint8_t i=position;i<count;i++)
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, command[i]);
-  }
-  // Move backward _num position
-  for(uint8_t i=0;i<count - position;i++)
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
+  command[count++] = _char;
 }
 
 /*
@@ -155,6 +48,9 @@ static inline void UARTConsole_CommandInsert(uint8_t _char, bool quiet){
  */
 static inline void UARTConsole_ProcessCommand(void)
 {
+  /* Whether we want to wait for EOT or not */
+  bool waitForEOT = false;
+
   /* Insert the null termination */
   command[count] = '\0';
 
@@ -170,30 +66,17 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Power Management (PM) */
   if(*parameter[0] == CM_PM){
-    if(*parameter[1] == CM_PM_LIST){
-      regulator_structure_t *regulator = regulators_map;
-      while(regulator->name) {
-        memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "%d(%d): %4d mV\r\n", regulator->name, PM_Is_Enabled(regulator->name), PM_Read_Voltage(regulator->name));
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-        regulator++;
-      }
-    }
-    else if(*parameter[1] == CM_PM_CLEAR)
+    if(*parameter[1] == CM_PM_CLEAR)
       PM_ClearIRQ();
     else if(*parameter[1] == CM_PM_STATUS){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d\r\n",  PM_ReadIRQ());
+      sprintf(buffer, "0x%02X\n",  PM_ReadIRQ());
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_PM_SAVE)
       PM_Save();
     else if(*parameter[1] == CM_PM_LOAD)
       PM_Load();
-    else if(*parameter[1] == CM_PM_ALLON)
-      PM_EnableAll();
-    else if(*parameter[1] == CM_PM_ALLOFF)
-      PM_DisableAll();
     else if(*parameter[1] == CM_PM_RESET)
       PM_Reset();
     else if(*parameter[1] == CM_PM_ENABLE)
@@ -212,23 +95,16 @@ static inline void UARTConsole_ProcessCommand(void)
       PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
     else if(*parameter[1] == CM_PM_GET){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d %d\r\n", PM_Is_Enabled(*parameter[2]), PM_Read_Voltage(*parameter[2]));
+      sprintf(buffer, "%d %d\n", PM_Is_Enabled(*parameter[2]), PM_Read_Voltage(*parameter[2]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
+    else
+      goto UNKNOW_COMMAN;
   }
 
   /* Digital Analog Converter (DAC) */
   else if(*parameter[0] == CM_DAC){
-    if(*parameter[1] == CM_DAC_LIST){
-      dac_structure_t *channel = dacs_map;
-      while(channel->name) {
-        memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "%d: %4d mV\r\n", channel->name, DAC_Read_Voltage(channel->name));
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-        channel++;
-      }
-    }
-    else if(*parameter[1] == CM_DAC_INCR)
+    if(*parameter[1] == CM_DAC_INCR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_INCREMENT); 
     else if(*parameter[1] == CM_DAC_DECR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_DECREMENT); 
@@ -240,9 +116,11 @@ static inline void UARTConsole_ProcessCommand(void)
       DAC_Configure_DAC(*parameter[3], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
     else if(*parameter[1] == CM_DAC_GET){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d\r\n", DAC_Read_Voltage(*parameter[2]));
+      sprintf(buffer, "%d\n", DAC_Read_Voltage(*parameter[2]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
+    else
+      goto UNKNOW_COMMAN;
   }
 
   /* Data Flash (DF) */
@@ -254,7 +132,7 @@ static inline void UARTConsole_ProcessCommand(void)
       status[0] = (uint8_t)Dataflash_ReceiveByte();
       status[1] = (uint8_t)Dataflash_ReceiveByte();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d %d\r\n", status[0], status[1]);
+      sprintf(buffer, "0x%02X 0x%02X\n", status[0], status[1]);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_DF_ID){
@@ -264,19 +142,15 @@ static inline void UARTConsole_ProcessCommand(void)
       id[1] = (uint8_t)Dataflash_ReceiveByte();
       id[2] = (uint8_t)Dataflash_ReceiveByte();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d %d %d\r\n", id[0], id[1], id[2]);
+      sprintf(buffer, "0x%02X 0x%02X 0x%02X\n", id[0], id[1], id[2]);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_DF_RESET)
       Dataflash_Reset();
     else if(*parameter[1] == CM_DF_READ){
-      uint32_t address;
-      uint32_t count;
-      if(*parameter[2] == DATAFLASH_LEVEL_CHIP){
-        address = 0;
-        count   = (uint32_t)DATAFLASH_SIZE;
-      }
-      else if(*parameter[2] == DATAFLASH_LEVEL_SECTOR){
+      uint32_t address = (uint32_t)atoi(parameter[2]);
+      uint32_t count = 1;
+      if(*parameter[2] == DATAFLASH_LEVEL_SECTOR){
         if(strcmp("0a", parameter[3]) == 0){
           address = 0*(uint32_t)DATAFLASH_BLOCK_SIZE;
           count   = 1*(uint32_t)DATAFLASH_BLOCK_SIZE;
@@ -298,7 +172,7 @@ static inline void UARTConsole_ProcessCommand(void)
         address = (uint32_t)atoi(parameter[3])*(uint32_t)DATAFLASH_PAGE_SIZE;
         count   =                              (uint32_t)DATAFLASH_PAGE_SIZE;
       }
-      else{ // Reading only 1 Byte
+      else if(*parameter[2] == DATAFLASH_LEVEL_BYTE){
         address = (uint32_t)atoi(parameter[2]);
         count = 1;
       }
@@ -316,7 +190,6 @@ static inline void UARTConsole_ProcessCommand(void)
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         if(i%16 == 15 || i == count - 1){
           CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
-          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
         }
       }
     }
@@ -349,6 +222,8 @@ static inline void UARTConsole_ProcessCommand(void)
         address = (uint32_t)atoi(parameter[3]) << (uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH;
         Dataflash_Erase(DATAFLASH_LEVEL_PAGE, address);
       }
+      else
+        goto UNKNOW_COMMAN;
     }
     else if(*parameter[1] == CM_DF_PROTECT){
       if(*parameter[2] == CM_DF_PROTECT_ENABLE)
@@ -360,35 +235,29 @@ static inline void UARTConsole_ProcessCommand(void)
         Dataflash_SendByte(DF_CMD_GETSTATUS);
         memset(buffer, 0, sizeof(buffer));
         if(Dataflash_ReceiveByte() & DF_STATUSREG_BYTE1_SECTORPROTECTION_ON)
-          sprintf(buffer, "Sector Protection On\r\n");
+          sprintf(buffer, "Sector Protection Enabled\n");
         else
-          sprintf(buffer, "Sector Protection Off\r\n");
+          sprintf(buffer, "Sector Protection Disabled\n");
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         Dataflash_ToggleSelectedChipCS();
 
         // Print protection register for each sector
         for(uint8_t i=0;i<sizeof(DF_CMD_READSECTORPROTECTIONREG)/sizeof(DF_CMD_READSECTORPROTECTIONREG[0]);i++)
           Dataflash_SendByte(DF_CMD_READSECTORPROTECTIONREG[i]);
-        for(uint16_t i=0;i<DATAFLASH_SECTORS;i++){
+        for(uint16_t i=0;i<DATAFLASH_SECTORS;i+=8){
           memset(buffer, 0, sizeof(buffer));
-          sprintf(buffer, "Sector[%u]: %02X\r\n", i, (uint8_t)Dataflash_ReceiveByte());
+          sprintf(buffer, "Sector[%2u~%2u]: ", i, i+8-1);
           CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+          for(uint16_t j=0;j<8;j++){
+            memset(buffer, 0, sizeof(buffer));
+            sprintf(buffer, "%02X ", (uint8_t)Dataflash_ReceiveByte());
+            CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+          }
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
         }
       }
       else{
-        if(*parameter[2] == CM_DF_PROTECT_ALL){
-          for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
-            eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_PROTECTED);
-            eeprom_busy_wait();
-          }
-        }
-        else if(*parameter[2] == CM_DF_PROTECT_NONE){
-          for(uint8_t i = 0;i<DATAFLASH_SECTORS;i++){
-            eeprom_write_byte(&DF_Sector_Protection[i], DF_SECTORPROTECTIONREG_UNPROTECTED);
-            eeprom_busy_wait();
-          }
-        }
-        else if(strcmp("0a", parameter[3]) == 0){
+        if(strcmp("0a", parameter[3]) == 0){
           uint8_t value = eeprom_read_byte(&DF_Sector_Protection[0]);
           if(*parameter[2] == CM_DF_PROTECT_ADD)
             value |= DF_SECTORPROTECTIONREG_0A_PROTECTED;
@@ -426,9 +295,11 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(*parameter[1] == CM_DF_BLANKCHECK){
       int32_t firstNonBlank = Dataflash_BlankCheck();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%ld\r\n", firstNonBlank);
+      sprintf(buffer, "%ld\n", firstNonBlank);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
+    else
+      goto UNKNOW_COMMAN;
     Dataflash_DeselectChip();
   }
 
@@ -437,7 +308,7 @@ static inline void UARTConsole_ProcessCommand(void)
     if(*parameter[1] == CM_EEPROM_READ){
       uint16_t address = (uint8_t)atoi(parameter[2]);
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d\r\n", eeprom_read_byte((uint8_t*)address));
+      sprintf(buffer, "%d\n", eeprom_read_byte((uint8_t*)address));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_EEPROM_WRITE){
@@ -446,6 +317,8 @@ static inline void UARTConsole_ProcessCommand(void)
       eeprom_write_byte((uint8_t*)address, value);
       eeprom_busy_wait();
     }
+    else
+      goto UNKNOW_COMMAN;
   }
 
   /* LED */
@@ -468,6 +341,8 @@ static inline void UARTConsole_ProcessCommand(void)
       else
         LEDs_ToggleLEDs(LEDMASK_RX);
     }
+    else
+      goto UNKNOW_COMMAN;
   }
 
   /* RRAM Testchip (TC) */
@@ -481,7 +356,7 @@ static inline void UARTConsole_ProcessCommand(void)
       // Connect to the device
       uint32_t id = SW_Connect();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "0x%08lX\r\n", id);
+      sprintf(buffer, "0x%08lX\n", id);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       
       // Power up the DAP
@@ -490,14 +365,11 @@ static inline void UARTConsole_ProcessCommand(void)
       // Halt the core
       SW_HaltCore();
     }
-    else if(*parameter[1] == CM_TC_RESET){
-      TC_Reset();
-    }
     else if(*parameter[1] == CM_TC_READ){
       uint32_t address = atoi(parameter[2]);
       uint32_t value = SW_ReadMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK);
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%ld\r\n", value);
+      sprintf(buffer, "0x%08lX\n", value);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_TC_WRITE){
@@ -505,6 +377,8 @@ static inline void UARTConsole_ProcessCommand(void)
       uint32_t value = atoi(parameter[3]);
       SW_WriteMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK, value);
     }
+    else
+      goto UNKNOW_COMMAN;
   }
 
   /* Demos */
@@ -519,7 +393,7 @@ static inline void UARTConsole_ProcessCommand(void)
         uint8_t size = eeprom_read_byte(&demos_map[i].size);
 
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "%2u - %-24s @ sector %2u (%3u KB)\r\n",  i, demo_name, sector_number, size);
+        sprintf(buffer, "%2u - %-24s @ sector %2u (%3u KB)\n",  i, demo_name, sector_number, size);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
@@ -527,7 +401,7 @@ static inline void UARTConsole_ProcessCommand(void)
       // Check if 3.3V, VDD, AVDD_SRAM are on
       if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "3.3V, VDD, and AVDD_SRAM are not all enabled, skipping ...\r\n");
+        sprintf(buffer, "3.3V, VDD, and AVDD_SRAM are not all enabled, skipping ...\n");
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
         return;
@@ -545,7 +419,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the demo being loaded
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Loading \"%s\" from sector %u (%u KB)\r\n", demo_name, sector_number, size);
+      sprintf(buffer, "Loading \"%s\" from sector %2u (%3u KB)\n", demo_name, sector_number, size);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
 
@@ -578,6 +452,8 @@ static inline void UARTConsole_ProcessCommand(void)
         word |= (uint32_t) Dataflash_ReceiveByte() << 16;
         word |= (uint32_t) Dataflash_ReceiveByte() << 24;
         SW_WriteMem((uint32_t)SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
+
+        // Print the status of progress bar
         if(i%step == 0){
           CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
           CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
@@ -588,9 +464,13 @@ static inline void UARTConsole_ProcessCommand(void)
       }
       Dataflash_DeselectChip();
 
-      UARTConsole_PrintNewLine();
+      // Print the end of progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
     }
     else if(*parameter[1] == CM_DEMO_RUN){
+      waitForEOT = true;
       TC_Reset();
     }
     else if(*parameter[1] == CM_DEMO_ANALYZE){
@@ -626,10 +506,12 @@ static inline void UARTConsole_ProcessCommand(void)
         // Save and print the updated size
         eeprom_write_byte(&demos_map[i].size, page/2); // Page # -> size (KB)
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "Updating \"%-24s\" from %u KB -> %u KB\r\n", demo_name, size, page/2);
+        sprintf(buffer, "Updating \"%-24s\" from %3u KB -> %3u KB\n", demo_name, size, page/2);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
+    else
+      goto UNKNOW_COMMAN;
   }
 
   /* Forwarding other commands to the testchip */
@@ -643,57 +525,40 @@ static inline void UARTConsole_ProcessCommand(void)
     Serial_TxString("\n");
   }
 
-  /* Unknown command, loop it back to the CDC */
-  else if(count !=0){ 
-    CDC_Device_SendString(&VirtualSerial_CDC_Interface, "Unknown Command: ", 17);
-    for(uint8_t i=0;i<5;i++){
-      if(parameter[i]){
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, parameter[i], strlen(parameter[i]));
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
-      }
-    }
-    UARTConsole_PrintNewLine();
-  }
-  
-  /* Clear the counter and the position */
+  /* Unknown command */
+  else
+    goto UNKNOW_COMMAN;
+
+/* Clear the counter and the position */
+CLEAN_UP:
+  if(!waitForEOT)
+    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, EOT);
   memset(command, 0, sizeof(command));
   count = 0;
-  position = 0;
+  return;
+
+/* Unknown command, loop it back to the CDC */
+UNKNOW_COMMAN:
+  CDC_Device_SendString(&VirtualSerial_CDC_Interface, "Unknown Command: ", 17);
+  for(uint8_t i=0;i<5;i++){
+    if(parameter[i]){
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, parameter[i], strlen(parameter[i]));
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
+    }
+  }
+  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+  goto CLEAN_UP;
 }
 
 /*
  * 
  */
-static inline void UARTConsole_InsertChar(uint8_t _char, bool quiet)
+static inline void UARTConsole_InsertChar(uint8_t _char)
 {
-  if(_char == BS) // Backspace
-    UARTConsole_CommandBackspace(quiet);
-  else if(_char == DEL) // Delete 
-    UARTConsole_CommandDelete(quiet);
-  else if(_char == CR || _char == LF){ // Carriage Return (CR) || New line (LF)
-    if(!quiet) UARTConsole_PrintNewLine();
-               UARTConsole_ProcessCommand();
-    if(!quiet) UARTConsole_PrintPrompt();
-  }
-  else if(_char == ESC) { // ESC (Special keys)
-    char _char1 = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-    char _char2 = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-
-    if(_char1 == 0x5B){
-      if(_char2 == 0x41){ // Up 
-      }
-      else if(_char2 == 0x42){ // Down 
-      }
-      else if(_char2 == 0x43){ // Right
-        UARTConsole_MoveForward();
-      }
-      else if(_char2 == 0x44){ // Left
-        UARTConsole_MoveBackward();
-      }
-    }
-  }
+  if(_char == LF) // New line (LF)
+    UARTConsole_ProcessCommand();
   else
-    UARTConsole_CommandInsert(_char, quiet);
+    UARTConsole_CommandInsert(_char);
 }
 
 #endif
