@@ -91,38 +91,48 @@ static inline void UARTConsole_MoveForward(uint8_t _num){
 /*
  * 
  */
-static inline void UARTConsole_Backspace(uint8_t _num){
+static inline void UARTConsole_CommandBackspace(bool quiet){
   // Edge case
-  if(_num > count)
-    _num = count;
-
-  // Move backward _num position
-  for(uint8_t i=0;i<_num;i++)
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
-  // Print the rest of command
-  for(uint8_t i=position;i<count;i++)
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, command[i]);
-  // Print blanks
-  for(uint8_t i=0;i<_num;i++)
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
-  // Move backward _num position
-  for(uint8_t i=0;i<count - position + _num;i++)
-    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
+  if(position == 0)
+    return;
+  // Move the rest of command one space to the left 
+  for(uint8_t i=position-1;i<count-1;i++)
+    command[i] = command[i+1];
   // Recompute count and position
-  count -= _num;
-  position -= _num;
+  position -= 1;
+  count -= 1;
+  // Print if needed
+  if(!quiet){
+    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
+    for(uint8_t i=position;i<count;i++)
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, command[i]);
+    // Insert the space to cover the last char up
+    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
+    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
+  }
+  // Move backward _num position
+  for(uint8_t i=0;i<count - position;i++)
+    CDC_Device_SendByte(&VirtualSerial_CDC_Interface, BS);
+}
+
+/*
+ * 
+ */
+static inline void UARTConsole_CommandDelete(bool quiet){
+  // Edge case
+  if(position == count)
+    return;
+
+  UARTConsole_MoveForward(1);
+  UARTConsole_CommandBackspace(quiet);
 }
 
 /*
  * 
  */
 static inline void UARTConsole_CommandInsert(uint8_t _char, bool quiet){
-  
-  uint8_t tmp;
-  uint8_t rollBack = count - position;
-
   // Move the rest of command one space to the right
-  for(uint8_t i=position+1;i<count+1;i++)
+  for(uint8_t i=count;i>=position+1;i--)
     command[i] = command[i-1];
   // Insert the new _char
   command[position] = _char;
@@ -654,7 +664,9 @@ static inline void UARTConsole_ProcessCommand(void)
 static inline void UARTConsole_InsertChar(uint8_t _char, bool quiet)
 {
   if(_char == BS) // Backspace
-    UARTConsole_Backspace(1);
+    UARTConsole_CommandBackspace(quiet);
+  else if(_char == DEL) // Delete 
+    UARTConsole_CommandDelete(quiet);
   else if(_char == CR || _char == LF){ // Carriage Return (CR) || New line (LF)
     if(!quiet) UARTConsole_PrintNewLine();
                UARTConsole_ProcessCommand();
