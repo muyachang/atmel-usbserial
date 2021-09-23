@@ -36,6 +36,4 @@
 #define    US 0x1F // Ctrl-_
 #define SPACE 0x20 // Whitespace
 
-#define   DEL 0x7E // Delete  (Not sure why it's 7E on my PC ... should be 7F(?))
-
 #endif
