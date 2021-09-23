@@ -516,6 +516,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Forwarding other commands to the testchip */
   else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR){
+    waitForEOT = true;
     for(uint8_t i=0;i<5;i++){
       if(parameter[i]){
         Serial_TxString(parameter[i]);
@@ -546,6 +547,7 @@ UNKNOW_COMMAN:
       CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
     }
   }
+  CDC_Device_SendString(&VirtualSerial_CDC_Interface, "(From Atmel)", 12);
   CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
   goto CLEAN_UP;
 }
