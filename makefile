@@ -96,7 +96,7 @@ F_CLOCK = 16000000
 FORMAT = ihex
 
 # Target file name (without extension).
-TARGET = rram-usbserial
+TARGET = atmel-usbserial
 
 # Object files directory
 #     To put object files in current directory, use a dot (.), do NOT make
