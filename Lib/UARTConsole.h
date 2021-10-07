@@ -16,12 +16,14 @@
 #include "CommandMap.h"
 
 /* char array for storing the command */
-char command[32];
+char command[64];
 uint8_t count = 0;
 
 /* Temp char array for any purpose */
-char buffer[32];
+char buffer[64];
 
+/* Extern variables */
+extern bool TC_Commanding;
 extern USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface;
 
 /*
@@ -56,10 +58,10 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Process the command */
   char *token;
-  char *parameter[5];
+  char *parameter[16];
 
   token = strtok(command, " ");
-  for(uint8_t i=0;i<5;i++){
+  for(uint8_t i=0;i<16;i++){
     parameter[i] = token;
     token = strtok(NULL, " ");
   }
@@ -460,7 +462,7 @@ static inline void UARTConsole_ProcessCommand(void)
         }
 
         if(i%(DATAFLASH_PAGE_SIZE/2) == 0)
-          LEDs_ToggleLEDs(LEDMASK_TX);
+          LEDs_ToggleLEDs(LEDMASK_RX);
       }
       Dataflash_DeselectChip();
 
@@ -517,7 +519,7 @@ static inline void UARTConsole_ProcessCommand(void)
   /* Forwarding other commands to the testchip */
   else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR){
     waitForEOT = true;
-    for(uint8_t i=0;i<5;i++){
+    for(uint8_t i=0;i<16;i++){
       if(parameter[i]){
         Serial_TxString(parameter[i]);
         Serial_TxString(" ");
@@ -532,7 +534,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
 /* Clear the counter and the position */
 CLEAN_UP:
-  if(!waitForEOT)
+  if(!waitForEOT && !TC_Commanding)
     CDC_Device_SendByte(&VirtualSerial_CDC_Interface, EOT);
   memset(command, 0, sizeof(command));
   count = 0;
