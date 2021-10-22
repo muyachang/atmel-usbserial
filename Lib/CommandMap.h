@@ -57,9 +57,13 @@
 #define CM_LED_DISABLE 0x42
 #define CM_LED_TOGGLE  0x43
 
-#define CM_TC_CONNECT  0x41
-#define CM_TC_READ     0x42
-#define CM_TC_WRITE    0x43
+#define CM_TC_CONNECT    0x41
+#define CM_TC_DISCONNECT 0x42
+#define CM_TC_READ       0x43
+#define CM_TC_WRITE      0x44
+#define CM_TC_LIST       0x45
+#define CM_TC_SAVE       0x46
+#define CM_TC_LOAD       0x47
 
 #define CM_DEMO_LIST    0x41
 #define CM_DEMO_LOAD    0x42
