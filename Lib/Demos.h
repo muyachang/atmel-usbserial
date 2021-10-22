@@ -12,7 +12,7 @@
     /* Regulator Map */
     __attribute__((section(".eeprom"))) demos_structure_t demos_map[] = {
       // Name                  | Sector Number | Demo Size
-      { "user 0"               ,        0*2+1  ,       128},
+      { "icsrl_uart_server"    ,        0*2+1  ,       128},
       { "user 1"               ,        1*2+1  ,       128},
       { "user 2"               ,        2*2+1  ,       128},
       { "user 3"               ,        3*2+1  ,       128},
