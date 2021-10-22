@@ -12,6 +12,7 @@
 #include "Dataflash.h"
 #include "TC.h"
 #include "Demos.h"
+#include "TCConf.h"
 #include "ASCII.h"
 #include "CommandMap.h"
 
@@ -150,7 +151,7 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(*parameter[1] == CM_DF_RESET)
       Dataflash_Reset();
     else if(*parameter[1] == CM_DF_READ){
-      uint32_t address = (uint32_t)atoi(parameter[2]);
+      uint32_t address = strtoul(parameter[2], NULL, 0);
       uint32_t count = 1;
       if(*parameter[2] == DATAFLASH_LEVEL_SECTOR){
         if(strcmp("0a", parameter[3]) == 0){
@@ -175,7 +176,7 @@ static inline void UARTConsole_ProcessCommand(void)
         count   =                              (uint32_t)DATAFLASH_PAGE_SIZE;
       }
       else if(*parameter[2] == DATAFLASH_LEVEL_BYTE){
-        address = (uint32_t)atoi(parameter[2]);
+        address = strtoul(parameter[3], NULL, 0);
         count = 1;
       }
 
@@ -197,8 +198,8 @@ static inline void UARTConsole_ProcessCommand(void)
     }
     else if(*parameter[1] == CM_DF_WRITE){
       // Parse the address/value
-      uint32_t address = (uint32_t)atoi(parameter[2]);
-      uint8_t  value   = (uint8_t)atoi(parameter[3]);
+      uint32_t address = strtoul(parameter[2], NULL, 0);
+      uint8_t  value   = (uint8_t)strtoul(parameter[3], NULL, 0);
 
       Dataflash_Configure_Write_Address(DF_CMD_RMWTHROUGHBUFF1, address);
       Dataflash_SendByte(value);
@@ -308,14 +309,14 @@ static inline void UARTConsole_ProcessCommand(void)
   /* EEPROM */
   else if(*parameter[0] == CM_EEPROM){
     if(*parameter[1] == CM_EEPROM_READ){
-      uint16_t address = (uint8_t)atoi(parameter[2]);
+      uint16_t address = (uint16_t)strtoul(parameter[2], NULL, 0);
       memset(buffer, 0, sizeof(buffer));
       sprintf(buffer, "%d\n", eeprom_read_byte((uint8_t*)address));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_EEPROM_WRITE){
-      uint16_t address = (uint8_t)atoi(parameter[2]);
-      uint8_t value = (uint32_t)atoi(parameter[3]);
+      uint16_t address = (uint16_t)strtoul(parameter[2], NULL, 0);
+      uint8_t value = (uint8_t)strtoul(parameter[3], NULL, 0);
       eeprom_write_byte((uint8_t*)address, value);
       eeprom_busy_wait();
     }
@@ -350,34 +351,183 @@ static inline void UARTConsole_ProcessCommand(void)
   /* RRAM Testchip (TC) */
   else if(*parameter[0] == CM_TC){
     if(*parameter[1] == CM_TC_CONNECT){
-      // Enable SW Mode
-      SW_LineReset();
-      SW_JTAGToSW();
-      SW_LineReset();
-
       // Connect to the device
       uint32_t id = SW_Connect();
       memset(buffer, 0, sizeof(buffer));
       sprintf(buffer, "0x%08lX\n", id);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      
-      // Power up the DAP
-      SW_DAPPowerUp();
-
-      // Halt the core
-      SW_HaltCore();
+    }
+    else if(*parameter[1] == CM_TC_DISCONNECT){
+      SW_Disconnect();
     }
     else if(*parameter[1] == CM_TC_READ){
-      uint32_t address = atoi(parameter[2]);
-      uint32_t value = SW_ReadMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK);
+      uint32_t address = strtoul(parameter[2], NULL, 0);
+      uint32_t value;
+      
+      SW_Connect();
+      value = SW_ReadMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK);
+      SW_Disconnect();
+
       memset(buffer, 0, sizeof(buffer));
       sprintf(buffer, "0x%08lX\n", value);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_TC_WRITE){
-      uint32_t address = atoi(parameter[2]);
-      uint32_t value = atoi(parameter[3]);
+      uint32_t address = strtoul(parameter[2], NULL, 0);
+      uint32_t value = strtoul(parameter[3], NULL, 0);
+
+      SW_Connect();
       SW_WriteMem(address, SW_REG_AP_CSW_SIZE_WORD_MASK, value);
+      SW_Disconnect();
+    }
+    else if(*parameter[1] == CM_TC_LIST){
+      for(uint8_t i=0;i<sizeof(tc_conf_map)/sizeof(tc_conf_structure_t);i++){
+        char tc_conf_date[20];
+        memset(tc_conf_date, 0, sizeof(tc_conf_date));
+        eeprom_read_block(tc_conf_date, tc_conf_map[i].date, sizeof(tc_conf_map[i].date));
+
+        uint16_t page_number = eeprom_read_word(&tc_conf_map[i].page_number);
+
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "chip #%u saved on %10s @ page %2u \n",  i, tc_conf_date, page_number);
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      }
+    }
+    else if(*parameter[1] == CM_TC_SAVE){
+      // Get the chosen index
+      uint8_t index = (uint8_t)atoi(parameter[2]);
+
+      // Transfer the config from Testchip to Dataflash
+      SW_Connect();
+      
+      uint16_t page_number = eeprom_read_word(&tc_conf_map[index].page_number);
+
+      // Print out the tc config being saved 
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "Saving TC Config to chip #%u @ page %u\n", index, page_number);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+
+      // Prepare RRAM testchip for programming
+      SW_Connect();
+
+      // Print the progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+      for(uint8_t i=0; i<16; i++)
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ' ');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+      // Start reading from the Dataflash sequentially and Write to the RRAM testchip
+      uint32_t curDFAddr = (uint32_t)page_number*(uint32_t)DATAFLASH_PAGE_SIZE;
+      uint32_t curTCAddr = (uint32_t)TC_CONFIG_START_ADDRESS;
+      Dataflash_SelectChip(DATAFLASH_CHIP1);
+      uint32_t step = (uint32_t)TC_CONFIG_SIZE/16;
+      for(uint32_t i=0; i < (uint32_t)TC_CONFIG_SIZE; i+=4){
+        if (i%(uint32_t)DATAFLASH_PAGE_SIZE==0){
+          Dataflash_ToggleSelectedChipCS();
+          Dataflash_Configure_Write_Page_Offset(DF_CMD_BUFF1WRITE, curDFAddr/(uint32_t)DATAFLASH_PAGE_SIZE, 0);
+        }
+
+        uint32_t word = SW_ReadMem(curTCAddr, SW_REG_AP_CSW_SIZE_WORD_MASK);
+        Dataflash_SendByte((uint8_t)(word       & 0xFF));
+        Dataflash_SendByte((uint8_t)(word >> 8  & 0xFF));
+        Dataflash_SendByte((uint8_t)(word >> 16 & 0xFF));
+        Dataflash_SendByte((uint8_t)(word >> 24 & 0xFF));
+
+        /* Write the Dataflash buffer contents back to the Dataflash page */
+        if ((i+4)%(uint32_t)DATAFLASH_PAGE_SIZE==0) {
+          Dataflash_ToggleSelectedChipCS();
+          Dataflash_Configure_Write_Page_Offset(DF_CMD_BUFF1TOMAINMEMWITHERASE, curDFAddr/(uint32_t)DATAFLASH_PAGE_SIZE, 0);
+          Dataflash_ToggleSelectedChipCS();
+          Dataflash_WaitWhileBusy();
+        }
+
+        // Print the status of progress bar
+        if(i%step == 0){
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
+          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+        }
+
+        // Flash the LED every pagesize/2
+        if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
+          LEDs_ToggleLEDs(LEDMASK_TX);
+
+        curDFAddr += 4;
+        curTCAddr += 4;
+      }
+      Dataflash_DeselectChip();
+
+      // Print the end of progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+      // Disconnect RRAM testchip
+      SW_Disconnect();
+
+      // Save the date 
+      eeprom_write_block(parameter[3], &tc_conf_map[index].date, sizeof(tc_conf_map[index].date));
+    }
+    else if(*parameter[1] == CM_TC_LOAD){
+      // Get the chosen index
+      uint8_t index = (uint8_t)atoi(parameter[2]);
+
+      // Transfer the config from Dataflash to Testchip
+      SW_Connect();
+      
+      uint16_t page_number = eeprom_read_word(&tc_conf_map[index].page_number);
+
+      // Print out the tc config being saved 
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "Loading TC Config from chip #%u @ page %u\n", index, page_number);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+
+      // Prepare RRAM testchip for programming
+      SW_Connect();
+
+      // Print the progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+      for(uint8_t i=0; i<16; i++)
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ' ');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+      // Start reading from the Dataflash sequentially and Write to the RRAM testchip
+      Dataflash_SelectChip(DATAFLASH_CHIP1);
+      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)page_number*(uint32_t)DATAFLASH_PAGE_SIZE);
+      uint32_t step = (uint32_t)TC_CONFIG_SIZE/16;
+      for(uint32_t i=0; i < (uint32_t)TC_CONFIG_SIZE; i+=4){
+        uint32_t word = 0;
+        word |= (uint32_t) Dataflash_ReceiveByte();
+        word |= (uint32_t) Dataflash_ReceiveByte() << 8;
+        word |= (uint32_t) Dataflash_ReceiveByte() << 16;
+        word |= (uint32_t) Dataflash_ReceiveByte() << 24;
+
+        SW_WriteMem((uint32_t)TC_CONFIG_START_ADDRESS + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
+
+        // Print the status of progress bar
+        if(i%step == 0){
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
+          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+        }
+
+        // Flash the LED every pagesize/2
+        if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
+          LEDs_ToggleLEDs(LEDMASK_RX);
+      }
+      Dataflash_DeselectChip();
+
+      // Print the end of progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+      // Disconnect RRAM testchip
+      SW_Disconnect();
     }
     else
       goto UNKNOW_COMMAN;
@@ -406,70 +556,71 @@ static inline void UARTConsole_ProcessCommand(void)
         sprintf(buffer, "3.3V, VDD, and AVDD_SRAM are not all enabled, skipping ...\n");
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-        return;
       }
 
-      // Retrieve the demo information
-      uint8_t index = atoi(parameter[2]);
+      else {
+        // Retrieve the demo information
+        uint8_t index = (uint8_t)atoi(parameter[2]);
 
-      char demo_name[24];
-      memset(demo_name, 0, sizeof(demo_name));
-      eeprom_read_block(demo_name, demos_map[index].name, sizeof(demo_name));
+        char demo_name[24];
+        memset(demo_name, 0, sizeof(demo_name));
+        eeprom_read_block(demo_name, demos_map[index].name, sizeof(demo_name));
 
-      uint8_t sector_number = eeprom_read_byte(&demos_map[index].sector_number);
-      uint8_t size = eeprom_read_byte(&demos_map[index].size);
+        uint8_t sector_number = eeprom_read_byte(&demos_map[index].sector_number);
+        uint8_t size = eeprom_read_byte(&demos_map[index].size);
 
-      // Print out the demo being loaded
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Loading \"%s\" from sector %2u (%3u KB)\n", demo_name, sector_number, size);
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+        // Print out the demo being loaded
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "Loading \"%s\" from sector %u (%3u KB)\n", demo_name, sector_number, size);
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
-      // Prepare RRAM testchip for programming
-      SW_LineReset();
-      SW_JTAGToSW();
-      SW_LineReset();
-      SW_Connect();
-      SW_DAPPowerUp();
-      SW_HaltCore();
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+        // Prepare RRAM testchip for programming
+        SW_Connect();
 
-      // Print the progress bar
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
-      for(uint8_t i=0; i<16; i++)
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ' ');
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+        // Print the progress bar
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+        for(uint8_t i=0; i<16; i++)
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ' ');
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
 
-      // Start reading from the Dataflash sequentially and Write to the RRAM testchip
-      Dataflash_SelectChip(DATAFLASH_CHIP1);
-      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
-      uint32_t step = (uint32_t)size*1024/16;
-      for(uint32_t i=0; i < (uint32_t)size*1024; i+=4){
-        uint32_t word = 0;
-        word |= (uint32_t) Dataflash_ReceiveByte();
-        word |= (uint32_t) Dataflash_ReceiveByte() << 8;
-        word |= (uint32_t) Dataflash_ReceiveByte() << 16;
-        word |= (uint32_t) Dataflash_ReceiveByte() << 24;
-        SW_WriteMem((uint32_t)SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
+        // Start reading from the Dataflash sequentially and Write to the RRAM testchip
+        Dataflash_SelectChip(DATAFLASH_CHIP1);
+        Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
+        uint32_t step = (uint32_t)size*1024/16;
+        for(uint32_t i=0; i < (uint32_t)size*1024; i+=4){
+          uint32_t word = 0;
+          word |= (uint32_t) Dataflash_ReceiveByte();
+          word |= (uint32_t) Dataflash_ReceiveByte() << 8;
+          word |= (uint32_t) Dataflash_ReceiveByte() << 16;
+          word |= (uint32_t) Dataflash_ReceiveByte() << 24;
+          SW_WriteMem((uint32_t)SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
 
-        // Print the status of progress bar
-        if(i%step == 0){
-          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
-          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+          // Print the status of progress bar
+          if(i%step == 0){
+            CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
+            CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+          }
+
+          if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
+            LEDs_ToggleLEDs(LEDMASK_RX);
         }
+        Dataflash_DeselectChip();
 
-        if(i%(DATAFLASH_PAGE_SIZE/2) == 0)
-          LEDs_ToggleLEDs(LEDMASK_RX);
+        // Print the end of progress bar
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+        // Disconnect RRAM testchip
+        SW_Disconnect();
+
+        // Reset the testchip
+        waitForEOT = true;
+        TC_Reset();
       }
-      Dataflash_DeselectChip();
-
-      // Print the end of progress bar
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
-      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
     }
     else if(*parameter[1] == CM_DEMO_RUN){
       waitForEOT = true;
@@ -506,7 +657,7 @@ static inline void UARTConsole_ProcessCommand(void)
         Dataflash_DeselectChip();
 
         // Save and print the updated size
-        eeprom_write_byte(&demos_map[i].size, page/2); // Page # -> size (KB)
+        eeprom_write_byte(&demos_map[i].size, page/2);
         memset(buffer, 0, sizeof(buffer));
         sprintf(buffer, "Updating \"%-24s\" from %3u KB -> %3u KB\n", demo_name, size, page/2);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
