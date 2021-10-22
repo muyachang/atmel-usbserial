@@ -113,7 +113,7 @@
     { PM_AVDD_RRAM,     PM_CMD_BUCK4, PM_BUCK_ENABLE_MASK,    PM_CMD_DVB4A, PM_BUCK_FB_REF_MASK, PM_AVDD_RRAM_FB_RATIO  ,          true , &PM_AVDD_RRAM_DVBx , &PM_AVDD_RRAM_STATUS },
     { PM_VDD      ,      PM_CMD_LDOA, PM_LDO2_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL , &PM_VDD_STATUS       },
     { PM_AVDD_SRAM,      PM_CMD_LDOB, PM_LDO4_ENABLE_MASK,               0,                   0,                       0,         false ,               NULL , &PM_AVDD_SRAM_STATUS },
-    { NULL }
+    { (int)NULL }
   };
 
 /* Inline Functions: */

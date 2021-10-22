@@ -54,7 +54,7 @@
       // Name      | Value Register | Level Address
       { DAC_VTGT_BL, LOAD_DAC_REG_A , &DAC_VTGT_BL_Level}, 
       { DAC_ADC_CAL, LOAD_DAC_REG_B , &DAC_ADC_CAL_Level}, 
-      { NULL }
+      { (int) NULL }
     };
 
     /* Inline Functions: */
