@@ -291,14 +291,6 @@
     /**
      *
      */
-    static inline uint32_t SW_Connect(void)
-    {
-      return SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_DPIDR, 0);
-    }
-
-    /**
-     *
-     */
     static inline void SW_DAPPowerUp(void)
     {
       SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_WRITE_MASK, SW_REG_DP_CTRLSTAT, 
@@ -309,6 +301,19 @@
         state = SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_CTRLSTAT , 0);
       } while( (state & 0xF0000000) != (SW_REG_DP_CTRLSTAT_CSYSPWRUPREQ_MASK | SW_REG_DP_CTRLSTAT_CSYSPWRUPACK_MASK |
                                         SW_REG_DP_CTRLSTAT_CDBGPWRUPREQ_MASK | SW_REG_DP_CTRLSTAT_CDBGPWRUPACK_MASK));
+    }
+
+    /**
+     *
+     */
+    static inline void SW_DAPPowerDown(void)
+    {
+      SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_WRITE_MASK, SW_REG_DP_CTRLSTAT, 0);
+
+      uint32_t state;
+      do{
+        state = SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_CTRLSTAT , 0);
+      } while( (state & 0xF0000000) != 0);
     }
 
     /**
@@ -386,7 +391,19 @@
       while((SW_ReadMem(SW_REG_DHCSR_ADDR,SW_REG_AP_CSW_SIZE_WORD_MASK) & SW_REG_S_HALT_MASK) == 0){}
 
       // Write 1 to bit VC_CORERESET in DEMCR
-      SW_WriteMem(SW_REG_DEMCR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 1);
+      //SW_WriteMem(SW_REG_DEMCR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 1);
+    }
+
+    /**
+     *
+     */
+    static inline void SW_UnhaltCore(void)
+    {
+      // Unhalt the core
+      SW_WriteMem(SW_REG_DHCSR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, SW_REG_DBGKEY);
+
+      // Wait for core to be halted
+      while((SW_ReadMem(SW_REG_DHCSR_ADDR,SW_REG_AP_CSW_SIZE_WORD_MASK) & SW_REG_S_HALT_MASK) == 1){}
     }
 
     /**
@@ -399,10 +416,32 @@
 
       // Write 1 to bit 0 (SYSRESETREQ caused the reset) to clear RSTINFO register so the watchdog test passes
       SW_WriteMem(SW_REG_RSTINFO_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, 1);
-
-      // Clear Halt and debug enables
-      SW_WriteMem(SW_REG_DHCSR_ADDR, SW_REG_AP_CSW_SIZE_WORD_MASK, SW_REG_DBGKEY);
     }
 
+    /**
+     *
+     */
+    static inline uint32_t SW_Connect(void)
+    {
+      SW_LineReset();
+      SW_JTAGToSW();
+      SW_LineReset();
+      uint32_t id = SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_DPIDR, 0);
+      SW_DAPPowerUp();
+      SW_HaltCore();
+      return id;
+    }
+
+    /**
+     *
+     */
+    static inline void SW_Disconnect(void)
+    {
+      SW_UnhaltCore();
+      SW_DAPPowerDown();
+      //SW_LineReset();
+      //SW_JTAGToSW();
+      //SW_LineReset();
+    }
 
 #endif
