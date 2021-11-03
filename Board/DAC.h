@@ -25,11 +25,12 @@
     #define DAC_VCC         3300 // mV
 
     /* Adjust mode */
-    #define DAC_ADJUST_MODE_INCREMENT 0
-    #define DAC_ADJUST_MODE_DECREMENT 1
-    #define DAC_ADJUST_MODE_PLUS      2
-    #define DAC_ADJUST_MODE_MINUS     3
-    #define DAC_ADJUST_MODE_ABSOLUTE  4
+    #define DAC_ADJUST_MODE_LOAD      0
+    #define DAC_ADJUST_MODE_INCREMENT 1
+    #define DAC_ADJUST_MODE_DECREMENT 2
+    #define DAC_ADJUST_MODE_PLUS      3
+    #define DAC_ADJUST_MODE_MINUS     4
+    #define DAC_ADJUST_MODE_ABSOLUTE  5
 
     /* Mapping */
     /* 
@@ -117,6 +118,8 @@
           new_level = eeprom_read_word(channel->current_level) + 1;
         else if(_mode == DAC_ADJUST_MODE_DECREMENT)
           new_level = eeprom_read_word(channel->current_level) - 1;
+        else if(_mode == DAC_ADJUST_MODE_LOAD)
+          new_level = eeprom_read_word(channel->current_level);
         else
           new_level = eeprom_read_word(channel->current_level);
 
@@ -170,7 +173,7 @@
         // Load from EEPROM
         dac_structure_t *channel = dacs_map;
         while(channel->name) {
-          DAC_Configure_DAC(channel->name, DAC_Decode_Level(eeprom_read_word(channel->current_level)), DAC_ADJUST_MODE_ABSOLUTE);
+          DAC_Configure_DAC(channel->name, 0, DAC_ADJUST_MODE_LOAD);
           channel++;
         }
       }
