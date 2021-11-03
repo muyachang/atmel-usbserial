@@ -163,10 +163,8 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t* const C
   bool DataTerminalReady = (CDCInterfaceInfo->State.ControlLineStates.HostToDevice & CDC_CONTROL_LINE_OUT_DTR);
 
   // Data Terminal Ready (DTR)
-  if (DataTerminalReady){
-  }
-  else{
-  }
+  if(DataTerminalReady){}
+  else{}
 }
 
 /* 
