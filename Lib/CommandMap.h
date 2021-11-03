@@ -3,6 +3,7 @@
 #define _COMMANDMAP_H_
 
 /* argv[0] */
+#define CM_BOARD  0x40
 #define CM_PM     0x41
 #define CM_DAC    0x42
 #define CM_DF     0x43
@@ -14,6 +15,8 @@
 #define CM_VECTOR 0x49
 
 /* argv[1] */
+#define CM_BOARD_VERSION 0x41
+
 #define CM_PM_CLEAR   0x41
 #define CM_PM_STATUS  0x42
 #define CM_PM_SAVE    0x43

@@ -16,6 +16,8 @@
 #include "ASCII.h"
 #include "CommandMap.h"
 
+#define VERSION "11.03.2021"
+
 /* char array for storing the command */
 char command[64];
 uint8_t count = 0;
@@ -67,8 +69,17 @@ static inline void UARTConsole_ProcessCommand(void)
     token = strtok(NULL, " ");
   }
 
+  /* Board Info */
+  if(*parameter[0] == CM_BOARD){
+    if(*parameter[1] == CM_BOARD_VERSION){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[INFO] Version: %s\n", VERSION);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+    }
+  }
+
   /* Power Management (PM) */
-  if(*parameter[0] == CM_PM){
+  else if(*parameter[0] == CM_PM){
     if(*parameter[1] == CM_PM_CLEAR)
       PM_ClearIRQ();
     else if(*parameter[1] == CM_PM_STATUS){
