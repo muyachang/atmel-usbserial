@@ -73,7 +73,7 @@ static inline void UARTConsole_ProcessCommand(void)
   if(*parameter[0] == CM_BOARD){
     if(*parameter[1] == CM_BOARD_VERSION){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Version: %s\n", VERSION);
+      sprintf(buffer, "%s", VERSION);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
   }
@@ -84,7 +84,7 @@ static inline void UARTConsole_ProcessCommand(void)
       PM_ClearIRQ();
     else if(*parameter[1] == CM_PM_STATUS){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "0x%02X\n",  PM_ReadIRQ());
+      sprintf(buffer, "0x%02X",  PM_ReadIRQ());
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_PM_SAVE)
@@ -109,7 +109,7 @@ static inline void UARTConsole_ProcessCommand(void)
       PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
     else if(*parameter[1] == CM_PM_GET){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d %d\n", PM_Is_Enabled(*parameter[2]), PM_Read_Voltage(*parameter[2]));
+      sprintf(buffer, "%d %d", PM_Is_Enabled(*parameter[2]), PM_Read_Voltage(*parameter[2]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else
@@ -118,7 +118,13 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Digital Analog Converter (DAC) */
   else if(*parameter[0] == CM_DAC){
-    if(*parameter[1] == CM_DAC_INCR)
+    // Sanity check first
+    if(!PM_Is_Enabled(PM_3V3)){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "%d", 0);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+    }
+    else if(*parameter[1] == CM_DAC_INCR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_INCREMENT); 
     else if(*parameter[1] == CM_DAC_DECR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_DECREMENT); 
@@ -130,7 +136,7 @@ static inline void UARTConsole_ProcessCommand(void)
       DAC_Configure_DAC(*parameter[3], atoi(parameter[2]), DAC_ADJUST_MODE_ABSOLUTE); 
     else if(*parameter[1] == CM_DAC_GET){
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d\n", DAC_Read_Voltage(*parameter[2]));
+      sprintf(buffer, "%d", DAC_Read_Voltage(*parameter[2]));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else
@@ -140,13 +146,20 @@ static inline void UARTConsole_ProcessCommand(void)
   /* Data Flash (DF) */
   else if(*parameter[0] == CM_DF){
     Dataflash_SelectChip(DATAFLASH_CHIP1);
-    if(*parameter[1] == CM_DF_STATUS){
+    // Sanity check first
+    if(!PM_Is_Enabled(PM_3V3)){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[ERROR] 3.3V is not enabled, skipping ...\n");
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+    }
+    else if(*parameter[1] == CM_DF_STATUS){
       Dataflash_SendByte(DF_CMD_GETSTATUS);
       uint8_t status[2];
       status[0] = (uint8_t)Dataflash_ReceiveByte();
       status[1] = (uint8_t)Dataflash_ReceiveByte();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "0x%02X 0x%02X\n", status[0], status[1]);
+      sprintf(buffer, "0x%02X 0x%02X", status[0], status[1]);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_DF_ID){
@@ -156,7 +169,7 @@ static inline void UARTConsole_ProcessCommand(void)
       id[1] = (uint8_t)Dataflash_ReceiveByte();
       id[2] = (uint8_t)Dataflash_ReceiveByte();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "0x%02X 0x%02X 0x%02X\n", id[0], id[1], id[2]);
+      sprintf(buffer, "0x%02X 0x%02X 0x%02X", id[0], id[1], id[2]);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_DF_RESET)
@@ -249,9 +262,9 @@ static inline void UARTConsole_ProcessCommand(void)
         Dataflash_SendByte(DF_CMD_GETSTATUS);
         memset(buffer, 0, sizeof(buffer));
         if(Dataflash_ReceiveByte() & DF_STATUSREG_BYTE1_SECTORPROTECTION_ON)
-          sprintf(buffer, "Sector Protection Enabled\n");
+          sprintf(buffer, "[INFO] Sector Protection Enabled\n");
         else
-          sprintf(buffer, "Sector Protection Disabled\n");
+          sprintf(buffer, "[INFO] Sector Protection Disabled\n");
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
         Dataflash_ToggleSelectedChipCS();
 
@@ -309,7 +322,7 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(*parameter[1] == CM_DF_BLANKCHECK){
       int32_t firstNonBlank = Dataflash_BlankCheck();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%ld\n", firstNonBlank);
+      sprintf(buffer, "%ld", firstNonBlank);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else
@@ -322,7 +335,7 @@ static inline void UARTConsole_ProcessCommand(void)
     if(*parameter[1] == CM_EEPROM_READ){
       uint16_t address = (uint16_t)strtoul(parameter[2], NULL, 0);
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d\n", eeprom_read_byte((uint8_t*)address));
+      sprintf(buffer, "%d", eeprom_read_byte((uint8_t*)address));
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_EEPROM_WRITE){
@@ -361,11 +374,18 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* RRAM Testchip (TC) */
   else if(*parameter[0] == CM_TC){
-    if(*parameter[1] == CM_TC_CONNECT){
+    // Sanity check first
+    if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[ERROR] 3.3V/VDD/AVDD_SRAM are not all enabled, skipping ...\n");
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+    }
+    else if(*parameter[1] == CM_TC_CONNECT){
       // Connect to the device
       uint32_t id = SW_Connect();
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "0x%08lX\n", id);
+      sprintf(buffer, "0x%08lX", id);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_TC_DISCONNECT){
@@ -380,7 +400,7 @@ static inline void UARTConsole_ProcessCommand(void)
       SW_Disconnect();
 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "0x%08lX\n", value);
+      sprintf(buffer, "0x%08lX", value);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_TC_WRITE){
@@ -400,7 +420,7 @@ static inline void UARTConsole_ProcessCommand(void)
         uint16_t page_number = eeprom_read_word(&tc_conf_map[i].page_number);
 
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "chip #%u saved on %10s @ page %2u \n",  i, tc_conf_date, page_number);
+        sprintf(buffer, "chip #%u saved on %10s @ page %2u\n",  i, tc_conf_date, page_number);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
@@ -415,7 +435,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Saving TC Config to chip #%u @ page %u\n", index, page_number);
+      sprintf(buffer, "[INFO] Saving TC Config to chip #%u @ page %u\n", index, page_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -492,7 +512,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "Loading TC Config from chip #%u @ page %u\n", index, page_number);
+      sprintf(buffer, "[INFO] Loading TC Config from chip #%u @ page %u\n", index, page_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -546,7 +566,14 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Demos */
   else if(*parameter[0] == CM_DEMO){
-    if(*parameter[1] == CM_DEMO_LIST){
+    // Sanity check first
+    if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[ERROR] 3.3V/VDD/AVDD_SRAM are not all enabled, skipping ...\n");
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+    }
+    else if(*parameter[1] == CM_DEMO_LIST){
       for(uint8_t i=0;i<sizeof(demos_map)/sizeof(demos_structure_t);i++){
         char demo_name[24];
         memset(demo_name, 0, sizeof(demo_name));
@@ -561,77 +588,67 @@ static inline void UARTConsole_ProcessCommand(void)
       }
     }
     else if(*parameter[1] == CM_DEMO_LOAD){
-      // Check if 3.3V, VDD, AVDD_SRAM are on
-      if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
-        memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "3.3V, VDD, and AVDD_SRAM are not all enabled, skipping ...\n");
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-      }
+      // Retrieve the demo information
+      uint8_t index = (uint8_t)atoi(parameter[2]);
 
-      else {
-        // Retrieve the demo information
-        uint8_t index = (uint8_t)atoi(parameter[2]);
+      char demo_name[24];
+      memset(demo_name, 0, sizeof(demo_name));
+      eeprom_read_block(demo_name, demos_map[index].name, sizeof(demo_name));
 
-        char demo_name[24];
-        memset(demo_name, 0, sizeof(demo_name));
-        eeprom_read_block(demo_name, demos_map[index].name, sizeof(demo_name));
+      uint8_t sector_number = eeprom_read_byte(&demos_map[index].sector_number);
+      uint8_t size = eeprom_read_byte(&demos_map[index].size);
 
-        uint8_t sector_number = eeprom_read_byte(&demos_map[index].sector_number);
-        uint8_t size = eeprom_read_byte(&demos_map[index].size);
+      // Print out the demo being loaded
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[INFO] Loading \"%s\" from sector %u (%3u KB)\n", demo_name, sector_number, size);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
-        // Print out the demo being loaded
-        memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "Loading \"%s\" from sector %u (%3u KB)\n", demo_name, sector_number, size);
-        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      // Prepare RRAM testchip for programming
+      SW_Connect();
 
-        // Prepare RRAM testchip for programming
-        SW_Connect();
+      // Print the progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+      for(uint8_t i=0; i<16; i++)
+        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ' ');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
 
-        // Print the progress bar
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
-        for(uint8_t i=0; i<16; i++)
-          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ' ');
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, CR);
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '[');
-        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+      // Start reading from the Dataflash sequentially and Write to the RRAM testchip
+      Dataflash_SelectChip(DATAFLASH_CHIP1);
+      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
+      uint32_t step = (uint32_t)size*1024/16;
+      for(uint32_t i=0; i < (uint32_t)size*1024; i+=4){
+        uint32_t word = 0;
+        word |= (uint32_t) Dataflash_ReceiveByte();
+        word |= (uint32_t) Dataflash_ReceiveByte() << 8;
+        word |= (uint32_t) Dataflash_ReceiveByte() << 16;
+        word |= (uint32_t) Dataflash_ReceiveByte() << 24;
+        SW_WriteMem((uint32_t)SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
 
-        // Start reading from the Dataflash sequentially and Write to the RRAM testchip
-        Dataflash_SelectChip(DATAFLASH_CHIP1);
-        Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
-        uint32_t step = (uint32_t)size*1024/16;
-        for(uint32_t i=0; i < (uint32_t)size*1024; i+=4){
-          uint32_t word = 0;
-          word |= (uint32_t) Dataflash_ReceiveByte();
-          word |= (uint32_t) Dataflash_ReceiveByte() << 8;
-          word |= (uint32_t) Dataflash_ReceiveByte() << 16;
-          word |= (uint32_t) Dataflash_ReceiveByte() << 24;
-          SW_WriteMem((uint32_t)SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
-
-          // Print the status of progress bar
-          if(i%step == 0){
-            CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
-            CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-          }
-
-          if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
-            LEDs_ToggleLEDs(LEDMASK_RX);
+        // Print the status of progress bar
+        if(i%step == 0){
+          CDC_Device_SendByte(&VirtualSerial_CDC_Interface, '>');
+          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
         }
-        Dataflash_DeselectChip();
 
-        // Print the end of progress bar
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
-        CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
-        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-
-        // Disconnect RRAM testchip
-        SW_Disconnect();
-
-        // Reset the testchip
-        waitForEOT = true;
-        TC_Reset();
+        if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
+          LEDs_ToggleLEDs(LEDMASK_RX);
       }
+      Dataflash_DeselectChip();
+
+      // Print the end of progress bar
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, ']');
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, LF);
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+      // Disconnect RRAM testchip
+      SW_Disconnect();
+
+      // Reset the testchip
+      waitForEOT = true;
+      TC_Reset();
     }
     else if(*parameter[1] == CM_DEMO_RUN){
       waitForEOT = true;
@@ -670,7 +687,7 @@ static inline void UARTConsole_ProcessCommand(void)
         // Save and print the updated size
         eeprom_write_byte(&demos_map[i].size, page/2);
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "Updating \"%-24s\" from %3u KB -> %3u KB\n", demo_name, size, page/2);
+        sprintf(buffer, "[INFO] Updating \"%-24s\" from %3u KB -> %3u KB\n", demo_name, size, page/2);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
@@ -680,14 +697,23 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Forwarding other commands to the testchip */
   else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR){
-    waitForEOT = true;
-    for(uint8_t i=0;i<16;i++){
-      if(parameter[i]){
-        Serial_TxString(parameter[i]);
-        Serial_TxString(" ");
-      }
+    // Sanity check first
+    if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[ERROR] 3.3V/VDD/AVDD_SRAM are not all enabled, skipping ...\n");
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
     }
-    Serial_TxString("\n");
+    else{
+      waitForEOT = true;
+      for(uint8_t i=0;i<16;i++){
+        if(parameter[i]){
+          Serial_TxString(parameter[i]);
+          Serial_TxString(" ");
+        }
+      }
+      Serial_TxString("\n");
+    }
   }
 
   /* Unknown command */
