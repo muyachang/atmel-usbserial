@@ -118,13 +118,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Digital Analog Converter (DAC) */
   else if(*parameter[0] == CM_DAC){
-    // Sanity check first
-    if(!PM_Is_Enabled(PM_3V3)){
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "%d", 0);
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-    }
-    else if(*parameter[1] == CM_DAC_INCR)
+    if(*parameter[1] == CM_DAC_INCR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_INCREMENT); 
     else if(*parameter[1] == CM_DAC_DECR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_DECREMENT); 
@@ -146,14 +140,7 @@ static inline void UARTConsole_ProcessCommand(void)
   /* Data Flash (DF) */
   else if(*parameter[0] == CM_DF){
     Dataflash_SelectChip(DATAFLASH_CHIP1);
-    // Sanity check first
-    if(!PM_Is_Enabled(PM_3V3)){
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[ERROR] 3.3V is not enabled, skipping ...\n");
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-    }
-    else if(*parameter[1] == CM_DF_STATUS){
+    if(*parameter[1] == CM_DF_STATUS){
       Dataflash_SendByte(DF_CMD_GETSTATUS);
       uint8_t status[2];
       status[0] = (uint8_t)Dataflash_ReceiveByte();
@@ -374,14 +361,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* RRAM Testchip (TC) */
   else if(*parameter[0] == CM_TC){
-    // Sanity check first
-    if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[ERROR] 3.3V/VDD/AVDD_SRAM are not all enabled, skipping ...\n");
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-    }
-    else if(*parameter[1] == CM_TC_CONNECT){
+    if(*parameter[1] == CM_TC_CONNECT){
       // Connect to the device
       uint32_t id = SW_Connect();
       memset(buffer, 0, sizeof(buffer));
@@ -435,7 +415,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Saving TC Config to chip #%u @ page %u\n", index, page_number);
+      sprintf(buffer, "[INFO] Saving to chip #%u @ page %u\n", index, page_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -512,7 +492,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Loading TC Config from chip #%u @ page %u\n", index, page_number);
+      sprintf(buffer, "[INFO] Loading from chip #%u @ page %u\n", index, page_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -566,14 +546,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Demos */
   else if(*parameter[0] == CM_DEMO){
-    // Sanity check first
-    if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[ERROR] 3.3V/VDD/AVDD_SRAM are not all enabled, skipping ...\n");
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-    }
-    else if(*parameter[1] == CM_DEMO_LIST){
+    if(*parameter[1] == CM_DEMO_LIST){
       for(uint8_t i=0;i<sizeof(demos_map)/sizeof(demos_structure_t);i++){
         char demo_name[24];
         memset(demo_name, 0, sizeof(demo_name));
@@ -697,23 +670,14 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Forwarding other commands to the testchip */
   else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR){
-    // Sanity check first
-    if(!(PM_Is_Enabled(PM_3V3) && PM_Is_Enabled(PM_VDD) && PM_Is_Enabled(PM_AVDD_SRAM))){
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[ERROR] 3.3V/VDD/AVDD_SRAM are not all enabled, skipping ...\n");
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-    }
-    else{
-      waitForEOT = true;
-      for(uint8_t i=0;i<16;i++){
-        if(parameter[i]){
-          Serial_TxString(parameter[i]);
-          Serial_TxString(" ");
-        }
+    waitForEOT = true;
+    for(uint8_t i=0;i<16;i++){
+      if(parameter[i]){
+        Serial_TxString(parameter[i]);
+        Serial_TxString(" ");
       }
-      Serial_TxString("\n");
     }
+    Serial_TxString("\n");
   }
 
   /* Unknown command */
