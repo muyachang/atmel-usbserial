@@ -102,11 +102,16 @@ static inline void UARTConsole_ProcessCommand(void)
     else if(*parameter[1] == CM_PM_DECR)
       PM_Adjust(*parameter[2], 0, PM_ADJUST_MODE_DECREMENT);
     else if(*parameter[1] == CM_PM_PLUS)
-      PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_PLUS);
+      PM_Adjust(*parameter[3], atof(parameter[2]), PM_ADJUST_MODE_PLUS);
     else if(*parameter[1] == CM_PM_MINUS)
-      PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_MINUS);
+      PM_Adjust(*parameter[3], atof(parameter[2]), PM_ADJUST_MODE_MINUS);
     else if(*parameter[1] == CM_PM_SET)
-      PM_Adjust(*parameter[3],atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
+      PM_Adjust(*parameter[3], atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
+    else if(*parameter[1] == CM_PM_SET_SAFE){
+      PM_Disable(*parameter[3]);
+      PM_Adjust(*parameter[3], atof(parameter[2]), PM_ADJUST_MODE_ABSOLUTE);
+      PM_Enable(*parameter[3]);
+    }
     else if(*parameter[1] == CM_PM_GET){
       memset(buffer, 0, sizeof(buffer));
       sprintf(buffer, "%d %d", PM_Is_Enabled(*parameter[2]), PM_Read_Voltage(*parameter[2]));
@@ -118,7 +123,11 @@ static inline void UARTConsole_ProcessCommand(void)
 
   /* Digital Analog Converter (DAC) */
   else if(*parameter[0] == CM_DAC){
-    if(*parameter[1] == CM_DAC_INCR)
+    if(*parameter[1] == CM_DAC_SAVE)
+      DAC_Save();
+    else if(*parameter[1] == CM_DAC_LOAD)
+      DAC_Load();
+    else if(*parameter[1] == CM_DAC_INCR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_INCREMENT); 
     else if(*parameter[1] == CM_DAC_DECR)
       DAC_Configure_DAC(*parameter[2], 0, DAC_ADJUST_MODE_DECREMENT); 
@@ -695,9 +704,9 @@ CLEAN_UP:
 /* Unknown command, loop it back to the CDC */
 UNKNOW_COMMAN:
   CDC_Device_SendString(&VirtualSerial_CDC_Interface, "Unknown Command: ", 17);
-  for(uint8_t i=0;i<5;i++){
+  for(uint8_t i=0;i<16;i++){
     if(parameter[i]){
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, parameter[i], strlen(parameter[i]));
+      CDC_Device_SendByte(&VirtualSerial_CDC_Interface, *parameter[i]);
       CDC_Device_SendByte(&VirtualSerial_CDC_Interface, SPACE);
     }
   }
