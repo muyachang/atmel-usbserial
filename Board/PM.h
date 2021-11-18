@@ -167,16 +167,12 @@
       // AVDD_WR supports dual feedback
            if((_regulator->name == PM_AVDD_WR) && (_regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH)){
         _regulator->feedback_ratio = PM_AVDD_WR_FB_RATIO_LOW;
-        eeprom_write_float(&PM_AVDD_WR_FB_RATIO, _regulator->feedback_ratio);
-        eeprom_busy_wait();
         PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
         DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
       }
       // AVDD_WL supports dual feedback
       else if((_regulator->name == PM_AVDD_WL) && (_regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH)){
         _regulator->feedback_ratio = PM_AVDD_WL_FB_RATIO_LOW;
-        eeprom_write_float(&PM_AVDD_WL_FB_RATIO, _regulator->feedback_ratio);
-        eeprom_busy_wait();
         PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
         DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
       }
@@ -188,16 +184,12 @@
       // AVDD_WR supports dual feedback
            if((_regulator->name == PM_AVDD_WR) && (_regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW)){
         _regulator->feedback_ratio = PM_AVDD_WR_FB_RATIO_HIGH;
-        eeprom_write_float(&PM_AVDD_WR_FB_RATIO, _regulator->feedback_ratio);
-        eeprom_busy_wait();
         PM_AVDD_WR_FB_SEL_POUT |=  PM_AVDD_WR_FB_SEL_MASK; // Select High FB
         DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
       }
       // AVDD_WL supports dual feedback
       else if((_regulator->name == PM_AVDD_WL) && (_regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW)){
         _regulator->feedback_ratio = PM_AVDD_WL_FB_RATIO_HIGH;
-        eeprom_write_float(&PM_AVDD_WL_FB_RATIO, _regulator->feedback_ratio);
-        eeprom_busy_wait();
         PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
         DVBx = PM_Encode_DVBx(_regulator, _target_voltage); // Recompute
       }
@@ -240,9 +232,15 @@
       return;
 
     /* Get the original binary code and adjust it if needed */
-    uint8_t oldDVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
-    uint8_t newDVBx;
-    uint16_t oldVoltage = PM_Decode_DVBx(regulator, oldDVBx);
+    uint8_t oldDVBx = 0;
+    uint8_t newDVBx = 0;
+    uint16_t oldVoltage = 0;
+
+    /* Read oldDVBx and decode it only when we need to */
+    if(_mode != PM_ADJUST_MODE_ABSOLUTE){
+      oldDVBx = PM_ReadReg(regulator->value_reg) & regulator->value_mask;
+      oldVoltage = PM_Decode_DVBx(regulator, oldDVBx);
+    }
 
     if(_mode == PM_ADJUST_MODE_ABSOLUTE)
       newDVBx = PM_Encode_DVBx(regulator,              _target_voltage);
@@ -255,16 +253,12 @@
         // AVDD_WR supports dual feedback
              if((regulator->name == PM_AVDD_WR) && (regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_LOW)){
           regulator->feedback_ratio = PM_AVDD_WR_FB_RATIO_HIGH;
-          eeprom_write_float(&PM_AVDD_WR_FB_RATIO, regulator->feedback_ratio);
-          eeprom_busy_wait();
           PM_AVDD_WR_FB_SEL_POUT |=  PM_AVDD_WR_FB_SEL_MASK; // Select High FB
           newDVBx = 1; // Not 0 here, just to make sure it's larger then the maximum of PM_AVDD_WR_FB_RATIO_LOW
         }
         // AVDD_WL supports dual feedback
         else if((regulator->name == PM_AVDD_WL) && (regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_LOW)){
           regulator->feedback_ratio = PM_AVDD_WL_FB_RATIO_HIGH;
-          eeprom_write_float(&PM_AVDD_WL_FB_RATIO, regulator->feedback_ratio);
-          eeprom_busy_wait();
           PM_AVDD_WL_FB_SEL_POUT |=  PM_AVDD_WL_FB_SEL_MASK; // Select High FB
           newDVBx = 1; // Not 0 here, just to make sure it's larger then the maximum of PM_AVDD_WL_FB_RATIO_LOW
         }
@@ -279,16 +273,12 @@
         // AVDD_WR supports dual feedback
              if((regulator->name == PM_AVDD_WR) && (regulator->feedback_ratio == PM_AVDD_WR_FB_RATIO_HIGH)){
           regulator->feedback_ratio = PM_AVDD_WR_FB_RATIO_LOW;
-          eeprom_write_float(&PM_AVDD_WR_FB_RATIO, regulator->feedback_ratio);
-          eeprom_busy_wait();
           PM_AVDD_WR_FB_SEL_POUT &= ~PM_AVDD_WR_FB_SEL_MASK; // Select Low FB
           newDVBx = _BV(5) - 2; // Not _BV(5) - 1 here, just to make sure it's smaller then the manimum of PM_AVDD_WL_FB_RATIO_HIGH
         }
         // AVDD_WL supports dual feedback
         else if((regulator->name == PM_AVDD_WL) && (regulator->feedback_ratio == PM_AVDD_WL_FB_RATIO_HIGH)){
           regulator->feedback_ratio = PM_AVDD_WL_FB_RATIO_LOW;
-          eeprom_write_float(&PM_AVDD_WL_FB_RATIO, regulator->feedback_ratio);
-          eeprom_busy_wait();
           PM_AVDD_WL_FB_SEL_POUT &= ~PM_AVDD_WL_FB_SEL_MASK; // Select Low FB
           newDVBx = _BV(5) - 2; // Not _BV(5) - 1 here, just to make sure it's smaller then the manimum of PM_AVDD_WL_FB_RATIO_HIGH
         }
@@ -302,7 +292,6 @@
       newDVBx = oldDVBx;
 
     PM_UpdateReg(regulator->value_reg, newDVBx, regulator->value_mask);
-    
   }
 
   /**
@@ -390,6 +379,17 @@
         eeprom_busy_wait();
       }
 
+      // AVDD_WR supports dual feedback
+       if(regulator->name == PM_AVDD_WR){
+        eeprom_write_float(&PM_AVDD_WR_FB_RATIO, regulator->feedback_ratio);
+        eeprom_busy_wait();
+      }
+      // AVDD_WL supports dual feedback
+      if(regulator->name == PM_AVDD_WL){
+        eeprom_write_float(&PM_AVDD_WL_FB_RATIO, regulator->feedback_ratio);
+        eeprom_busy_wait();
+      }
+
       // Save the state
       uint8_t status = PM_ReadReg(regulator->on_off_reg) & regulator->on_off_mask;
       eeprom_write_byte(regulator->status_addr, status);
@@ -448,7 +448,7 @@
       /* Give some time for the voltage to settle */
       _delay_ms(500);
 
-      /* Enable Protocols */
+      /* Enable SPI & SW first */
       SPI_Init(SPI_SPEED_FCPU_DIV_2 | SPI_ORDER_MSB_FIRST | SPI_SCK_LEAD_FALLING | SPI_SAMPLE_TRAILING | SPI_MODE_MASTER);
       SW_Init();
 
@@ -457,6 +457,14 @@
       LEDs_Init();
       DAC_Init();
       Dataflash_Init();
+
+      /* Enable USB & UART after everything settles */
+      USB_Init();
+      Serial_Init(115200, false);
+
+      /* Reset the testchip */
+      TC_Reset();
+      TC_Test_Reset();
     }
     else
     {
@@ -464,7 +472,7 @@
       PM_AVDD_WR_FB_SEL_DDR &= ~PM_AVDD_WR_FB_SEL_MASK; // Set it as input
       PM_AVDD_WL_FB_SEL_DDR &= ~PM_AVDD_WL_FB_SEL_MASK; // Set it as input
 
-      /* Disable Protocols */
+      /* Disable SPI & SW first */
       SPI_ShutDown();
       SW_ShutDown();
 
@@ -473,6 +481,10 @@
       LEDs_ShutDown();
       DAC_ShutDown();
       Dataflash_ShutDown();
+
+      /* Shutdown USB & UART */
+      USB_ShutDown();
+      Serial_ShutDown();
     }
   }
 
