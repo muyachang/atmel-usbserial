@@ -44,17 +44,18 @@
     typedef struct {
       const uint8_t   name;
       const uint8_t   value_reg;
-            uint16_t* current_level; // Current binary value for the corresponding voltage (inside EEPROM)
+            uint16_t  level; // Binary value for the corresponding voltage
+            uint16_t* level_addr; // EEPROM address of the binary value for the corresponding voltage (inside EEPROM)
     } dac_structure_t;
 
     /* DAC Map */
-    __attribute__((section(".eeprom"))) uint16_t DAC_VTGT_BL_Level = 100;
-    __attribute__((section(".eeprom"))) uint16_t DAC_ADC_CAL_Level = 100;
+    __attribute__((section(".eeprom"))) uint16_t DAC_VTGT_BL_Level = 0;
+    __attribute__((section(".eeprom"))) uint16_t DAC_ADC_CAL_Level = 0;
 
     dac_structure_t dacs_map[] = {
-      // Name      | Value Register | Level Address
-      { DAC_VTGT_BL, LOAD_DAC_REG_A , &DAC_VTGT_BL_Level}, 
-      { DAC_ADC_CAL, LOAD_DAC_REG_B , &DAC_ADC_CAL_Level}, 
+      // Name      | Value Register | Level | Level Address
+      { DAC_VTGT_BL, LOAD_DAC_REG_A ,     0 , &DAC_VTGT_BL_Level}, 
+      { DAC_ADC_CAL, LOAD_DAC_REG_B ,     0 , &DAC_ADC_CAL_Level}, 
       { (int) NULL }
     };
 
@@ -104,31 +105,26 @@
           return;
 
         /* Get the current voltage value */
-        uint16_t current_voltage = DAC_Decode_Level(eeprom_read_word(channel->current_level));
-        uint16_t new_level; // New binary value for the corresponding voltage
+        uint16_t current_voltage = DAC_Decode_Level(channel->level);
 
         /* Get the new level */
              if(_mode == DAC_ADJUST_MODE_ABSOLUTE)
-          new_level = DAC_Encode_Voltage(_mVolt);
+          channel->level = DAC_Encode_Voltage(_mVolt);
         else if(_mode == DAC_ADJUST_MODE_PLUS)
-          new_level = DAC_Encode_Voltage(current_voltage + _mVolt);
+          channel->level = DAC_Encode_Voltage(current_voltage + _mVolt);
         else if(_mode == DAC_ADJUST_MODE_MINUS)
-          new_level = DAC_Encode_Voltage(current_voltage - _mVolt);
+          channel->level = DAC_Encode_Voltage(current_voltage - _mVolt);
         else if(_mode == DAC_ADJUST_MODE_INCREMENT)
-          new_level = eeprom_read_word(channel->current_level) + 1;
+          channel->level = (channel->level) + 1;
         else if(_mode == DAC_ADJUST_MODE_DECREMENT)
-          new_level = eeprom_read_word(channel->current_level) - 1;
+          channel->level = (channel->level) - 1;
         else if(_mode == DAC_ADJUST_MODE_LOAD)
-          new_level = eeprom_read_word(channel->current_level);
+          channel->level = (channel->level);
         else
-          new_level = eeprom_read_word(channel->current_level);
-
-        /* Save it into EEPROM */
-        eeprom_write_word(channel->current_level, new_level);
-        eeprom_busy_wait();
+          channel->level = (channel->level);
 
         /* Compose the 14-bit command */
-        uint16_t _command = ((channel->value_reg << DAC_PRECISION) + eeprom_read_word(channel->current_level)) & 0x3FFF; // 14 bits in total
+        uint16_t _command = ((channel->value_reg << DAC_PRECISION) + (channel->level)) & 0x3FFF; // 14 bits in total
 
         /* Send the command */
         DAC_CHIPCS_DDR |=  DAC_CHIPCS_MASK  ; // Set it as an output
@@ -157,7 +153,33 @@
           return 0;
 
         /* Return the current level */
-        return DAC_Decode_Level(eeprom_read_word(channel->current_level));
+        return DAC_Decode_Level(channel->level);
+      }
+
+      /**
+       * Function for storing the levels into EEPROM
+       */
+      static inline void DAC_Save(void)
+      {
+        dac_structure_t *channel = dacs_map;
+        while(channel->name) {
+          eeprom_write_word(channel->level_addr, channel->level);
+          eeprom_busy_wait();
+          channel++;
+        }
+      }
+
+      /**
+       * Function for loading the levels from EEPROM
+       */
+      static inline void DAC_Load(void)
+      {
+        dac_structure_t *channel = dacs_map;
+        while(channel->name) {
+          channel->level = eeprom_read_word(channel->level_addr);
+          DAC_Configure_DAC(channel->name, 0, DAC_ADJUST_MODE_LOAD);
+          channel++;
+        }
       }
 
       /**
@@ -170,12 +192,7 @@
         DAC_LOADDACS_POUT |=  DAC_LOADDACS_MASK; // Enable the pull high resistor
         DAC_LOADDACS_DDR  &= ~DAC_LOADDACS_MASK; // Set it as an input 
         
-        // Load from EEPROM
-        dac_structure_t *channel = dacs_map;
-        while(channel->name) {
-          DAC_Configure_DAC(channel->name, 0, DAC_ADJUST_MODE_LOAD);
-          channel++;
-        }
+        DAC_Load();
       }
 
       /**
