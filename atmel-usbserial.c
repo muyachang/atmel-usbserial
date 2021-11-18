@@ -90,10 +90,6 @@ void SetupHardware(void)
   /* UART Buffer Initialization*/
   RingBuffer_InitBuffer(&USARTtoUSB_Buffer);
 
-  /* Protocol Initialization */
-  USB_Init();
-  Serial_Init(115200, false);
-
   /* Power Initialization */
   PM_Init();
 }
