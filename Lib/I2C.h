@@ -20,7 +20,7 @@
       #define I2C_SCL_DDR   DDRC
       #define I2C_SCL_MASK  _BV(2)
 
-      #define I2C_DELAY 5 
+      #define I2C_DELAY 1
   #endif
 
   /* Public Interface - May be used in end-application: */
