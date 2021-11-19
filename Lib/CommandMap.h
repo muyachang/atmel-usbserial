@@ -13,6 +13,7 @@
 #define CM_DEMO   0x47
 #define CM_RRAM   0x48
 #define CM_VECTOR 0x49
+#define CM_DNN    0x4A
 
 /* argv[1] */
 #define CM_BOARD_VERSION 0x41

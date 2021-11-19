@@ -16,7 +16,7 @@
 #include "ASCII.h"
 #include "CommandMap.h"
 
-#define VERSION "11.03.2021"
+#define VERSION "a.11.18.2021"
 
 /* char array for storing the command */
 char command[64];
@@ -678,7 +678,7 @@ static inline void UARTConsole_ProcessCommand(void)
   }
 
   /* Forwarding other commands to the testchip */
-  else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR){
+  else if(*parameter[0] == CM_RRAM || *parameter[0] == CM_VECTOR || *parameter[0] == CM_DNN){
     waitForEOT = true;
     for(uint8_t i=0;i<16;i++){
       if(parameter[i]){
