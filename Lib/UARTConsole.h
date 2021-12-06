@@ -16,7 +16,7 @@
 #include "ASCII.h"
 #include "CommandMap.h"
 
-#define VERSION "a.11.18.2021"
+#define VERSION "a.12.06.2021"
 
 /* char array for storing the command */
 char command[64];
