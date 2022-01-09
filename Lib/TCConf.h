@@ -4,7 +4,7 @@
 
 #define TC_CONFIG_START_ADDRESS 0x20070000            // Start at 448 KB
 #define TC_CONFIG_SIZE          0x00010000            // 64 KB for each TC
-#define TC_CONFIG_DEFAULT_DATE  "01/21/1991_00:00:00" // Default date
+#define TC_CONFIG_DEFAULT_DATE  "--/--/----_--:--:--" // Default date
 #define TC_CONFIG_SECTOR_OFFSET 49                    // Sector offset in DF for testchip configs
 #define TC_CONFIG_SECTOR_SIZE   1                     // Sector size in DF for each testchip config 
 

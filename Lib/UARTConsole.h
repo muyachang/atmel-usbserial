@@ -424,7 +424,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Saving to chip #%u @ sector %u\n", index, sector_number);
+      sprintf(buffer, "[INFO] Saving to chip #%u\n", index);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -496,7 +496,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Loading from chip #%u @ sector %u\n", index, sector_number);
+      sprintf(buffer, "[INFO] Loading from chip #%u\n", index);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -538,6 +538,25 @@ static inline void UARTConsole_ProcessCommand(void)
       // Disconnect RRAM testchip
       SW_Disconnect();
     }
+    else if(*parameter[1] == CM_TC_REMOVE){
+      // Get the chosen index and the sector number
+      uint8_t index = (uint8_t)atoi(parameter[2]);
+      uint8_t sector_number = eeprom_read_byte(&tc_conf_map[index].sector_number);
+
+      // Erase the sector
+      uint32_t address = (uint32_t)sector_number << ((uint32_t)DATAFLASH_OFFSET_ADDR_WIDTH + (uint32_t)DATAFLASH_PAGE_ADDR_WIDTH - (uint32_t)DATAFLASH_SECTOR_ADDR_WIDTH);
+      Dataflash_SelectChip(DATAFLASH_CHIP1);
+      Dataflash_Erase(DATAFLASH_LEVEL_SECTOR, address);
+      Dataflash_DeselectChip();
+
+      // Reset the date 
+      eeprom_write_block(TC_CONFIG_DEFAULT_DATE, &tc_conf_map[index].date, sizeof(tc_conf_map[index].date));
+
+      // Print out the tc config being saved 
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[INFO] Chip #%u removed\n", index);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+    }
     else
       goto UNKNOW_COMMAN;
   }
@@ -571,7 +590,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Print out the demo being loaded
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Loading \"%s\" from sector %u (%3u KB)\n", demo_name, sector_number, size);
+      sprintf(buffer, "[INFO] Loading \"%s\" (%3u KB)\n", demo_name, size);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -654,7 +673,7 @@ static inline void UARTConsole_ProcessCommand(void)
         // Save and print the updated size
         eeprom_write_byte(&demos_map[i].size, page/2);
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "[INFO] Updating \"%-24s\" from %3u KB -> %3u KB\n", demo_name, size, page/2);
+        sprintf(buffer, "[INFO] \"%-24s\" (%3u KB -> %3u KB)\n", demo_name, size, page/2);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }

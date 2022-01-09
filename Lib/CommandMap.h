@@ -71,6 +71,7 @@
 #define CM_TC_LIST       0x45
 #define CM_TC_SAVE       0x46
 #define CM_TC_LOAD       0x47
+#define CM_TC_REMOVE     0x48
 
 #define CM_DEMO_LIST    0x41
 #define CM_DEMO_LOAD    0x42
