@@ -409,7 +409,7 @@ static inline void UARTConsole_ProcessCommand(void)
         uint8_t sector_number = eeprom_read_byte(&tc_conf_map[i].sector_number);
 
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "chip #%u saved on %10s @ sector %2u\n",  i, tc_conf_date, sector_number);
+        sprintf(buffer, "Chip #%u saved on %10s @ sector %2u\n",  i, tc_conf_date, sector_number);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
@@ -421,11 +421,6 @@ static inline void UARTConsole_ProcessCommand(void)
       SW_Connect();
       
       uint8_t sector_number = eeprom_read_byte(&tc_conf_map[index].sector_number);
-
-      // Print out the tc config being saved 
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Saving to chip #%u\n", index);
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
       SW_Connect();
@@ -484,6 +479,11 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Save the date 
       eeprom_write_block(parameter[3], &tc_conf_map[index].date, sizeof(tc_conf_map[index].date));
+
+      // Print out the tc config being saved 
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[INFO] Chip #%u saved\n", index);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_TC_LOAD){
       // Get the chosen index
@@ -493,11 +493,6 @@ static inline void UARTConsole_ProcessCommand(void)
       SW_Connect();
       
       uint8_t sector_number = eeprom_read_byte(&tc_conf_map[index].sector_number);
-
-      // Print out the tc config being saved 
-      memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Loading from chip #%u\n", index);
-      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
       SW_Connect();
@@ -537,6 +532,11 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Disconnect RRAM testchip
       SW_Disconnect();
+
+      // Print out the tc config being saved 
+      memset(buffer, 0, sizeof(buffer));
+      sprintf(buffer, "[INFO] Chip #%u loaded\n", index);
+      CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
     }
     else if(*parameter[1] == CM_TC_REMOVE){
       // Get the chosen index and the sector number
@@ -573,7 +573,7 @@ static inline void UARTConsole_ProcessCommand(void)
         uint8_t size = eeprom_read_byte(&demos_map[i].size);
 
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "%2u - %-24s @ sector %2u (%3u KB)\n",  i, demo_name, sector_number, size);
+        sprintf(buffer, "%2u. %-24s @ sector %2u (%3u KB)\n",  i, demo_name, sector_number, size);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
@@ -673,7 +673,7 @@ static inline void UARTConsole_ProcessCommand(void)
         // Save and print the updated size
         eeprom_write_byte(&demos_map[i].size, page/2);
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "[INFO] \"%-24s\" (%3u KB -> %3u KB)\n", demo_name, size, page/2);
+        sprintf(buffer, "[INFO] %-24s (%3u KB -> %3u KB)\n", demo_name, size, page/2);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
