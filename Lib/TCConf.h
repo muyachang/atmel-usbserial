@@ -2,28 +2,31 @@
 #ifndef __TCCONF_H__
 #define __TCCONF_H__
 
-#define TC_CONFIG_START_ADDRESS 0x20070000  // Start at 448 KB
-#define TC_CONFIG_SIZE          0x00010000  // 64 KB for each TC
+#define TC_CONFIG_START_ADDRESS 0x20070000            // Start at 448 KB
+#define TC_CONFIG_SIZE          0x00010000            // 64 KB for each TC
+#define TC_CONFIG_DEFAULT_DATE  "01/21/1991_00:00:00" // Default date
+#define TC_CONFIG_SECTOR_OFFSET 49                    // Sector offset in DF for testchip configs
+#define TC_CONFIG_SECTOR_SIZE   1                     // Sector size in DF for each testchip config 
 
     /* Data structure */
     typedef struct {
-            char     date[20];    // Date saved
-      const uint16_t page_number; // Location in side the dataflash
+            char    date[20];    // Date saved
+      const uint8_t sector_number; // Location in side the dataflash
     } tc_conf_structure_t;
 
     /* Regulator Map */
     __attribute__((section(".eeprom"))) tc_conf_structure_t tc_conf_map[] = {
-      //  Date Saved | Page Number 
-      { "01/21/1991_00:00:00" ,   0*128+49*128},
-      { "01/21/1991_00:00:00" ,   1*128+49*128},
-      { "01/21/1991_00:00:00" ,   2*128+49*128},
-      { "01/21/1991_00:00:00" ,   3*128+49*128},
-      { "01/21/1991_00:00:00" ,   4*128+49*128},
-      { "01/21/1991_00:00:00" ,   5*128+49*128},
-      { "01/21/1991_00:00:00" ,   6*128+49*128},
-      { "01/21/1991_00:00:00" ,   7*128+49*128},
-      { "01/21/1991_00:00:00" ,   8*128+49*128},
-      { "01/21/1991_00:00:00" ,   9*128+49*128},
+      // Date Saved            | Sector Number 
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 0 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 1 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 2 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 3 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 4 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 5 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 6 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 7 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 8 * TC_CONFIG_SECTOR_SIZE},
+      {  TC_CONFIG_DEFAULT_DATE, TC_CONFIG_SECTOR_OFFSET + 9 * TC_CONFIG_SECTOR_SIZE},
     };
 
 #endif

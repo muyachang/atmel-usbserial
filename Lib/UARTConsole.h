@@ -16,7 +16,7 @@
 #include "ASCII.h"
 #include "CommandMap.h"
 
-#define VERSION "a.12.06.2021"
+#define VERSION "a.01.08.2022"
 
 /* char array for storing the command */
 char command[64];
@@ -406,10 +406,10 @@ static inline void UARTConsole_ProcessCommand(void)
         memset(tc_conf_date, 0, sizeof(tc_conf_date));
         eeprom_read_block(tc_conf_date, tc_conf_map[i].date, sizeof(tc_conf_map[i].date));
 
-        uint16_t page_number = eeprom_read_word(&tc_conf_map[i].page_number);
+        uint8_t sector_number = eeprom_read_byte(&tc_conf_map[i].sector_number);
 
         memset(buffer, 0, sizeof(buffer));
-        sprintf(buffer, "chip #%u saved on %10s @ page %2u\n",  i, tc_conf_date, page_number);
+        sprintf(buffer, "chip #%u saved on %10s @ sector %2u\n",  i, tc_conf_date, sector_number);
         CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
       }
     }
@@ -420,11 +420,11 @@ static inline void UARTConsole_ProcessCommand(void)
       // Transfer the config from Testchip to Dataflash
       SW_Connect();
       
-      uint16_t page_number = eeprom_read_word(&tc_conf_map[index].page_number);
+      uint8_t sector_number = eeprom_read_byte(&tc_conf_map[index].sector_number);
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Saving to chip #%u @ page %u\n", index, page_number);
+      sprintf(buffer, "[INFO] Saving to chip #%u @ sector %u\n", index, sector_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -433,7 +433,7 @@ static inline void UARTConsole_ProcessCommand(void)
                     SW_REG_AP_CSW_PROT_MASTER_DBG_MASK | SW_REG_AP_CSW_PROT_PRIV_MASK | SW_REG_AP_CSW_INCR_SINGLE_MASK | SW_REG_AP_CSW_SIZE_WORD_MASK);
 
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
-      uint32_t curDFAddr = (uint32_t)page_number*(uint32_t)DATAFLASH_PAGE_SIZE;
+      uint32_t curDFAddr = (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE;
       Dataflash_SelectChip(DATAFLASH_CHIP1);
       for(uint32_t block = 0; block < (uint32_t)TC_CONFIG_SIZE/1024; block++){ // set TAR every 1KB block
         SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_TAR, (uint32_t)TC_CONFIG_START_ADDRESS + block*1024);
@@ -492,11 +492,11 @@ static inline void UARTConsole_ProcessCommand(void)
       // Transfer the config from Dataflash to Testchip
       SW_Connect();
       
-      uint16_t page_number = eeprom_read_word(&tc_conf_map[index].page_number);
+      uint8_t sector_number = eeprom_read_byte(&tc_conf_map[index].sector_number);
 
       // Print out the tc config being saved 
       memset(buffer, 0, sizeof(buffer));
-      sprintf(buffer, "[INFO] Loading from chip #%u @ page %u\n", index, page_number);
+      sprintf(buffer, "[INFO] Loading from chip #%u @ sector %u\n", index, sector_number);
       CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
 
       // Prepare RRAM testchip for programming
@@ -506,7 +506,7 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
       Dataflash_SelectChip(DATAFLASH_CHIP1);
-      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)page_number*(uint32_t)DATAFLASH_PAGE_SIZE);
+      Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
       for(uint32_t block = 0; block < (uint32_t)TC_CONFIG_SIZE/1024; block++){ // set TAR every 1KB block
         SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_TAR, (uint32_t)TC_CONFIG_START_ADDRESS + block*1024);
         for(uint32_t i=0; i < 1024; i+=4){
@@ -637,7 +637,7 @@ static inline void UARTConsole_ProcessCommand(void)
         Dataflash_SelectChip(DATAFLASH_CHIP1);
         Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, start_addr);
         uint16_t page;
-        for(page=0; page<256; page+=2){ // Step 1KB
+        for(page=0; page<DEMO_SECTOR_SIZE*128; page+=2){ // Step 1KB
           uint16_t j;
           for(j=0; j<(uint16_t)DATAFLASH_PAGE_SIZE*2; j++)
             if(Dataflash_ReceiveByte()!=255){ // Not empty, we go to next 1KB page
