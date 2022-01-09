@@ -429,45 +429,47 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Prepare RRAM testchip for programming
       SW_Connect();
+      SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_CSW,
+                    SW_REG_AP_CSW_PROT_MASTER_DBG_MASK | SW_REG_AP_CSW_PROT_PRIV_MASK | SW_REG_AP_CSW_INCR_SINGLE_MASK | SW_REG_AP_CSW_SIZE_WORD_MASK);
 
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
       uint32_t curDFAddr = (uint32_t)page_number*(uint32_t)DATAFLASH_PAGE_SIZE;
-      uint32_t curTCAddr = (uint32_t)TC_CONFIG_START_ADDRESS;
       Dataflash_SelectChip(DATAFLASH_CHIP1);
-      for(uint32_t i=0; i < (uint32_t)TC_CONFIG_SIZE; i+=4){
-        if (i%(uint32_t)DATAFLASH_PAGE_SIZE==0){
-          Dataflash_ToggleSelectedChipCS();
-          Dataflash_Configure_Write_Page_Offset(DF_CMD_BUFF1WRITE, curDFAddr/(uint32_t)DATAFLASH_PAGE_SIZE, 0);
-        }
+      for(uint32_t block = 0; block < (uint32_t)TC_CONFIG_SIZE/1024; block++){ // set TAR every 1KB block
+        SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_TAR, (uint32_t)TC_CONFIG_START_ADDRESS + block*1024);
+        for(uint32_t i=0; i < 1024; i+=4){
+          if (i%(uint32_t)DATAFLASH_PAGE_SIZE==0){
+            Dataflash_ToggleSelectedChipCS();
+            Dataflash_Configure_Write_Page_Offset(DF_CMD_BUFF1WRITE, curDFAddr/(uint32_t)DATAFLASH_PAGE_SIZE, 0);
+          }
 
-        uint32_t word = SW_ReadMem(curTCAddr, SW_REG_AP_CSW_SIZE_WORD_MASK);
-        Dataflash_SendByte((uint8_t)(word       & 0xFF));
-        Dataflash_SendByte((uint8_t)(word >> 8  & 0xFF));
-        Dataflash_SendByte((uint8_t)(word >> 16 & 0xFF));
-        Dataflash_SendByte((uint8_t)(word >> 24 & 0xFF));
+          SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_READ_MASK, SW_REG_AP_DRW, 0);
+          uint32_t word = SW_SendPacket(SW_REQ_DP_MASK, SW_REQ_READ_MASK, SW_REG_DP_RDBUFF, 0);
+          Dataflash_SendByte((uint8_t)(word       & 0xFF));
+          Dataflash_SendByte((uint8_t)(word >> 8  & 0xFF));
+          Dataflash_SendByte((uint8_t)(word >> 16 & 0xFF));
+          Dataflash_SendByte((uint8_t)(word >> 24 & 0xFF));
 
-        /* Write the Dataflash buffer contents back to the Dataflash page */
-        if ((i+4)%(uint32_t)DATAFLASH_PAGE_SIZE==0) {
-          Dataflash_ToggleSelectedChipCS();
-          Dataflash_Configure_Write_Page_Offset(DF_CMD_BUFF1TOMAINMEMWITHERASE, curDFAddr/(uint32_t)DATAFLASH_PAGE_SIZE, 0);
-          Dataflash_ToggleSelectedChipCS();
-          Dataflash_WaitWhileBusy();
+          /* Write the Dataflash buffer contents back to the Dataflash page */
+          if ((i+4)%(uint32_t)DATAFLASH_PAGE_SIZE==0) {
+            Dataflash_ToggleSelectedChipCS();
+            Dataflash_Configure_Write_Page_Offset(DF_CMD_BUFF1TOMAINMEMWITHERASE, curDFAddr/(uint32_t)DATAFLASH_PAGE_SIZE, 0);
+            Dataflash_ToggleSelectedChipCS();
+            Dataflash_WaitWhileBusy();
+          }
+
+          curDFAddr += 4;
         }
 
         // Print the status of progress
-        if(i%256 == 0){
-          memset(buffer, 0, sizeof(buffer));
-          sprintf(buffer, "\r[INFO] Progress: %lu%%", i*100/((uint32_t)TC_CONFIG_SIZE));
-          CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-        }
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "\r[INFO] Progress: %lu%%", block*100/((uint32_t)TC_CONFIG_SIZE/1024));
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
 
-        // Flash the LED every pagesize/2
-        if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
-          LEDs_ToggleLEDs(LEDMASK_TX);
+        // Toggle the LED
+        LEDs_ToggleLEDs(LEDMASK_TX);
 
-        curDFAddr += 4;
-        curTCAddr += 4;
       }
       Dataflash_DeselectChip();
 
@@ -499,30 +501,31 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Prepare RRAM testchip for programming
       SW_Connect();
+      SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_CSW,
+                    SW_REG_AP_CSW_PROT_MASTER_DBG_MASK | SW_REG_AP_CSW_PROT_PRIV_MASK | SW_REG_AP_CSW_INCR_SINGLE_MASK | SW_REG_AP_CSW_SIZE_WORD_MASK);
 
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
       Dataflash_SelectChip(DATAFLASH_CHIP1);
       Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)page_number*(uint32_t)DATAFLASH_PAGE_SIZE);
-      for(uint32_t i=0; i < (uint32_t)TC_CONFIG_SIZE; i+=4){
-        uint32_t word = 0;
-        word |= (uint32_t) Dataflash_ReceiveByte();
-        word |= (uint32_t) Dataflash_ReceiveByte() << 8;
-        word |= (uint32_t) Dataflash_ReceiveByte() << 16;
-        word |= (uint32_t) Dataflash_ReceiveByte() << 24;
-
-        SW_WriteMem((uint32_t)TC_CONFIG_START_ADDRESS + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
-
-        // Print the status of progress
-        if(i%256 == 0){
-          memset(buffer, 0, sizeof(buffer));
-          sprintf(buffer, "\r[INFO] Progress: %lu%%", i*100/((uint32_t)TC_CONFIG_SIZE));
-          CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+      for(uint32_t block = 0; block < (uint32_t)TC_CONFIG_SIZE/1024; block++){ // set TAR every 1KB block
+        SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_TAR, (uint32_t)TC_CONFIG_START_ADDRESS + block*1024);
+        for(uint32_t i=0; i < 1024; i+=4){
+          uint32_t word = 0;
+          word |= (uint32_t) Dataflash_ReceiveByte();
+          word |= (uint32_t) Dataflash_ReceiveByte() << 8;
+          word |= (uint32_t) Dataflash_ReceiveByte() << 16;
+          word |= (uint32_t) Dataflash_ReceiveByte() << 24;
+          SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_DRW, word);
         }
 
-        // Flash the LED every pagesize/2
-        if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
-          LEDs_ToggleLEDs(LEDMASK_RX);
+        // Print the status of progress
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "\r[INFO] Progress: %lu%%", block*100/((uint32_t)TC_CONFIG_SIZE/1024));
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+        // Toggle the LED
+        LEDs_ToggleLEDs(LEDMASK_RX);
       }
       Dataflash_DeselectChip();
 
@@ -573,28 +576,31 @@ static inline void UARTConsole_ProcessCommand(void)
 
       // Prepare RRAM testchip for programming
       SW_Connect();
+      SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_CSW,
+                    SW_REG_AP_CSW_PROT_MASTER_DBG_MASK | SW_REG_AP_CSW_PROT_PRIV_MASK | SW_REG_AP_CSW_INCR_SINGLE_MASK | SW_REG_AP_CSW_SIZE_WORD_MASK);
 
       // Start reading from the Dataflash sequentially and Write to the RRAM testchip
       Dataflash_SelectChip(DATAFLASH_CHIP1);
       Dataflash_Configure_Read_Address(DF_CMD_CONTARRAYREAD_LP, (uint32_t)sector_number*(uint32_t)DATAFLASH_SECTOR_SIZE);
-      for(uint32_t i=0; i < (uint32_t)size*1024; i+=4){
-        uint32_t word = 0;
-        word |= (uint32_t) Dataflash_ReceiveByte();
-        word |= (uint32_t) Dataflash_ReceiveByte() << 8;
-        word |= (uint32_t) Dataflash_ReceiveByte() << 16;
-        word |= (uint32_t) Dataflash_ReceiveByte() << 24;
-        SW_WriteMem((uint32_t)SW_ROM_ADDR + i, SW_REG_AP_CSW_SIZE_WORD_MASK, word);
-
-        // Print the progress
-        if(i%256 == 0){
-          memset(buffer, 0, sizeof(buffer));
-          sprintf(buffer, "\r[INFO] Progress: %lu%%", i*100/((uint32_t)size*1024));
-          CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
-          CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+      for(uint32_t block = 0; block < (uint32_t)size; block++){ // set TAR every 1KB block
+        SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_TAR, (uint32_t)(SW_ROM_ADDR + block*1024));
+        for(uint32_t i=0; i < 1024; i+=4){
+          uint32_t word = 0;
+          word |= (uint32_t) Dataflash_ReceiveByte();
+          word |= (uint32_t) Dataflash_ReceiveByte() << 8;
+          word |= (uint32_t) Dataflash_ReceiveByte() << 16;
+          word |= (uint32_t) Dataflash_ReceiveByte() << 24;
+          SW_SendPacket(SW_REQ_AP_MASK, SW_REQ_WRITE_MASK, SW_REG_AP_DRW, word);
         }
 
-        if(i%((uint32_t)DATAFLASH_PAGE_SIZE/2) == 0)
-          LEDs_ToggleLEDs(LEDMASK_RX);
+        // Print the progress
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer, "\r[INFO] Progress: %lu%%", block*100/((uint32_t)size));
+        CDC_Device_SendString(&VirtualSerial_CDC_Interface, buffer, strlen(buffer));
+        CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+        // Toggle the LED
+        LEDs_ToggleLEDs(LEDMASK_RX);
       }
       Dataflash_DeselectChip();
 

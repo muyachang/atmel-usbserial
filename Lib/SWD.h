@@ -68,17 +68,18 @@
       #define SW_REG_DP_TARGETSEL 0xc
 
       /* AP CSW Register Fields */
-      #define SW_REG_AP_CSW_PROT_USER_MASK        ((uint32_t)0<<25)
-      #define SW_REG_AP_CSW_PROT_PRIV_MASK        ((uint32_t)1<<25)
-      #define SW_REG_AP_CSW_PROT_BUFF_MASK        ((uint32_t)1<<26)
-      #define SW_REG_AP_CSW_PROT_CACH_MASK        ((uint32_t)1<<27)
       #define SW_REG_AP_CSW_PROT_MASTER_CORE_MASK ((uint32_t)0<<29)
       #define SW_REG_AP_CSW_PROT_MASTER_DBG_MASK  ((uint32_t)1<<29)
+      #define SW_REG_AP_CSW_PROT_CACH_MASK        ((uint32_t)1<<27)
+      #define SW_REG_AP_CSW_PROT_BUFF_MASK        ((uint32_t)1<<26)
+      #define SW_REG_AP_CSW_PROT_USER_MASK        ((uint32_t)0<<25)
+      #define SW_REG_AP_CSW_PROT_PRIV_MASK        ((uint32_t)1<<25)
       #define SW_REG_AP_CSW_INCR_OFF_MASK         ((uint32_t)0<< 4)
       #define SW_REG_AP_CSW_INCR_SINGLE_MASK      ((uint32_t)1<< 4)
-      #define SW_REG_AP_CSW_SIZE_BYTE_MASK        0
-      #define SW_REG_AP_CSW_SIZE_HALFWORD_MASK    1
-      #define SW_REG_AP_CSW_SIZE_WORD_MASK        2
+      #define SW_REG_AP_CSW_INCR_PACK_MASK        ((uint32_t)2<< 4)
+      #define SW_REG_AP_CSW_SIZE_BYTE_MASK        ((uint32_t)0<< 0) 
+      #define SW_REG_AP_CSW_SIZE_HALFWORD_MASK    ((uint32_t)1<< 0)
+      #define SW_REG_AP_CSW_SIZE_WORD_MASK        ((uint32_t)2<< 0)
 
       /* DP CTRLSTAT Register Fields */
       #define SW_REG_DP_CTRLSTAT_CSYSPWRUPACK_MASK ((uint32_t)1<<31) //System power up ack, RO
